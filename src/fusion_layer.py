@@ -79,7 +79,8 @@ class FusionLayer:
         # Split into train and validation
         n_samples = len(X)
         n_val = int(n_samples * validation_split)
-        indices = np.random.permutation(n_samples)
+        rng = np.random.RandomState(self.random_state)
+        indices = rng.permutation(n_samples)
         
         train_idx = indices[n_val:]
         val_idx = indices[:n_val]
