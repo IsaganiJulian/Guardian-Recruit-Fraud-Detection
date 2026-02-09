@@ -5,6 +5,7 @@ Integrates all components of the Guardian Recruit Fraud Detection system.
 
 import numpy as np
 import pandas as pd
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
 from nlp_stream import NLPStream
 from outlier_stream import OutlierStream
 from fusion_layer import FusionLayer
@@ -98,13 +99,10 @@ class GuardianRecruitFraudDetector:
         if not self.is_trained:
             raise ValueError("System must be trained before evaluation. Call train() first.")
             
-        results = self.predict(job_texts, job_metadata)
         predictions = results['predictions']
         probabilities = results['probabilities']
         
         # Calculate metrics
-        from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score, roc_auc_score
-        
         metrics = {
             'accuracy': accuracy_score(labels, predictions),
             'precision': precision_score(labels, predictions),
