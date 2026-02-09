@@ -48,9 +48,13 @@ class FusionLayer:
         Returns:
             np.ndarray: Combined feature vector
         """
+        # Convert to numpy arrays if needed
+        nlp_arr = np.asarray(nlp_features)
+        outlier_arr = np.asarray(outlier_features)
+        
         # Flatten if needed
-        nlp_flat = nlp_features.flatten() if len(nlp_features.shape) > 1 else nlp_features
-        outlier_flat = outlier_features.flatten() if len(outlier_features.shape) > 1 else outlier_features
+        nlp_flat = nlp_arr.flatten() if nlp_arr.ndim > 1 else nlp_arr
+        outlier_flat = outlier_arr.flatten() if outlier_arr.ndim > 1 else outlier_arr
         
         # Concatenate features
         combined = np.concatenate([nlp_flat, outlier_flat])
