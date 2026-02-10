@@ -1,8 +1,10 @@
+> **Team members:** For task tracking, milestones, and workflow protocols, please refer to our GitHub Project Board.
+
 # 🛡️ Guardian Recruit – Fraud Detection System
 
 **University of North Texas | DTSC 5082 Capstone**  
 **Team:** 
-- Isagani Hernandez
+- Isagani Julian Hernandez 
 - Hemanth Kumar Gunda
 - Kusuma Satya Sreeja Chalasani
 - Srijitha Ungarala
@@ -17,17 +19,35 @@ Guardian Recruit is a dual-stream hybrid machine learning system for detecting f
 
 ---
 
-## 2. Data & Workspace Layout
-### A. GitHub (Code & Architecture)
-- `src/`: Final Python scripts (`nlp_stream.py`, `outlier_stream.py`, `fusion_layer.py`)
-- `requirements.txt`: Run `pip install -r requirements.txt` to align your environment
-- `.gitignore`: DO NOT upload `.venv/` or raw `data/` to GitHub
+## 2. Directory & Workspace Structure
 
-### B. Google Drive (Data & Training)
-All heavy files are stored in our shared Google Drive folder: [Insert Link to Shared Drive Folder Here]
-- `/data`: `train.csv`, `val.csv`, `test.csv`
-- `/notebooks`: Experimental Google Colab notebooks
-- `/models`: Saved model weights (e.g., BERT `.pth` files)
+```
+Guardian-Recruit/
+├── .venv/                # Local Python Virtual Environment (Ignored by Git)
+├── data/                 # Data Directory (Ignored by Git - Sync via Google Drive)
+│   ├── raw/              # Original emscad_dataset.csv
+│   ├── processed/        # Stratified train.csv, val.csv, test.csv
+│   └── external/         # Scraped 2026 job listings
+├── models/               # Saved Model Weights (Ignored by Git - Sync via Google Drive)
+│   ├── nlp_bert.pth      # Hemanth/Srijitha's saved model
+│   ├── outlier_forest.pkl # Kusuma's saved model
+│   └── fusion_xgb.json   # Isagani's final Fusion model
+├── notebooks/            # Experimental & Training Notebooks (Google Colab)
+│   ├── 01_initial_eda.ipynb             # Lead: Data understanding & splitting
+│   ├── 02_nlp_stream_training.ipynb     # Hemanth: BERT/RoBERTa semantics
+│   ├── 03_outlier_modeling.ipynb        # Kusuma: Isolation Forest/Anomaly detection
+│   ├── 04_fusion_layer_shap.ipynb       # Lead: XGBoost integration & XAI
+│   └── 05_live_scraper_test.ipynb       # Lead: 2026 Validation
+├── src/                  # Production-ready Python Scripts
+│   ├── __init__.py
+│   ├── scraper.py        # 2026 Data collection script
+│   ├── nlp_pipeline.py   # Text preprocessing and scoring logic
+│   ├── outlier_logic.py  # Statistical anomaly logic
+│   └── fusion_engine.py  # Final XGBoost scoring & SHAP generation
+├── .gitignore            # Tells Git to ignore /data, /models, and /.venv
+├── README.md             # Project Roadmap & Documentation
+└── requirements.txt      # Project dependencies (Pandas, Scikit-Learn, XGBoost, etc.)
+```
 
 ---
 
@@ -78,5 +98,13 @@ git checkout -b feature/your-task-name
 
 ## 6. Contact & Syncs
 - **Weekly Sync:** [Day/Time] via [Teams]
+
+---
+
+## 7. Best Practices
+- **Strict Pathing:** Use relative paths in all notebooks.
+  - Example: `pd.read_csv('../data/processed/train.csv')` instead of absolute paths like `C:/Users/...`
+- **Model Exports:** All trained models must be exported to the `/models` folder in Google Drive. This allows the Fusion Layer to load them without retraining.
+- **Data Isolation:** Never upload anything from the `/data` or `/models` folders to GitHub. We use Google Drive for storage and GitHub for logic.
 
 
