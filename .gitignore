@@ -36,13 +36,12 @@ env/
 # Jupyter Notebook
 .ipynb_checkpoints
 
-# Models and data (large files)
-*.h5
-*.pkl
-*.joblib
-models/*.bin
-models/*.pt
-models/*.pth
+# Data and models directories (large files)
+# Ignore everything in data/ and models/, but track .gitkeep
+data/*
+!data/.gitkeep
+models/*
+!models/.gitkeep
 
 # OS
 .DS_Store
