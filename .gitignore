@@ -43,6 +43,7 @@ env/
 models/*.bin
 models/*.pt
 models/*.pth
+models/*.json
 
 # OS
 .DS_Store
