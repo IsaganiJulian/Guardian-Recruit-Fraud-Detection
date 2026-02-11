@@ -42,6 +42,14 @@ data/*
 !data/.gitkeep
 models/*
 !models/.gitkeep
+# Models and data (large files)
+*.h5
+*.pkl
+*.joblib
+models/*.bin
+models/*.pt
+models/*.pth
+models/*.json
 
 # OS
 .DS_Store
