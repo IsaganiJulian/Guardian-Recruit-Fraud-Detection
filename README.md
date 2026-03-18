@@ -90,9 +90,31 @@ git checkout -b feature/your-task-name
 ## 5. Project Roadmap (Phase 1 Checklist)
 - [x] Initial Project Skeleton created
 - [x] Virtual Environment setup
-- [ ] Master Data Split (Isagani)
-- [ ] Missing Value EDA (Kusuma)
-- [ ] Keyword Frequency EDA (Hemanth/Srijitha)
+- [x] Master Data Split (Isagani)
+- [x] Missing Value EDA (Kusuma)
+- [x] Keyword Frequency EDA (Hemanth/Srijitha)
+
+## Project Roadmap (Phase 2 Checklist)
+
+### Stream A — NLP (Hemanth + Srijitha)
+- [ ] Text preprocessing & feature concat (Srijitha) — Week 4
+- [ ] BERT/RoBERTa fine-tuning on train.csv in Colab GPU (Hemanth) — Weeks 4–5
+- [ ] Evaluate on val.csv (F1 ≥ 0.85 for fraud class) — Week 6
+- [ ] Export `nlp_bert.pth` to Google Drive `/models/` — Week 7
+- [ ] Port `predict_proba(text) → float` to `src/nlp_stream.py` — Week 7
+
+### Stream B — Outlier Detection (Kusuma)
+- [ ] Feature engineering for salary, education, logo, employment_type — Week 4
+- [ ] Fit IsolationForest + LocalOutlierFactor on train.csv — Week 5
+- [ ] Tune `contamination` param; validate on val.csv — Week 6
+- [ ] Export `outlier_forest.pkl` to Google Drive `/models/` — Week 7
+- [ ] Port `anomaly_score(row) → float` to `src/outlier_logic.py` — Week 7
+
+### Lead Task — 2026 Live Scraper (Isagani)
+- [ ] Build ETL pipeline targeting public job boards — Weeks 4–5
+- [ ] Normalize scraped fields to match emscad schema — Weeks 5–6
+- [ ] Store output to `data/external/` on Google Drive — Week 6
+- [ ] Run real-world validation in `05_live_scraper_test.ipynb` — Weeks 7–8
 
 ---
 
