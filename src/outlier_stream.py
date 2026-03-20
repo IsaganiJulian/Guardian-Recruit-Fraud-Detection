@@ -48,6 +48,8 @@ edu_map = {
 
 # 1. Load the model
 # Path assumes this script is in /src and model is in /models
+# Trained model: IsolationForest(n_estimators=100, contamination=0.1, random_state=42)
+# Selected in 03_outlier_optimization.ipynb (B-6) — best F1=0.1778, Recall=0.2637 on val.csv
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "../models/outlier_forest.pkl")
 
 def load_model():
