@@ -46,10 +46,8 @@ edu_map = {
     'Vocational - HS Diploma': 13,
 }
 
-# 1. Load the model
+# Load the model
 # Path assumes this script is in /src and model is in /models
-# Trained model: IsolationForest(n_estimators=100, contamination=0.1, random_state=42)
-# Selected in 03_outlier_optimization.ipynb (B-6) — best F1=0.1778, Recall=0.2637 on val.csv
 MODEL_PATH = os.path.join(os.path.dirname(__file__), "../models/outlier_forest.pkl")
 
 def load_model():
@@ -57,44 +55,71 @@ def load_model():
         try:
             return joblib.load(MODEL_PATH)
         except Exception:
-            # pkl may be an empty placeholder (e.g. local dev without Drive mounted)
             return None
     return None
 
 model = load_model()
 
+def _safe_int(val, default=0):
+    """Convert t/f strings and numeric values to int safely."""
+    if pd.isna(val):
+        return default
+    s = str(val).strip().lower()
+    if s in ('t', 'true', '1'):
+        return 1
+    if s in ('f', 'false', '0'):
+        return 0
+    try:
+        return int(float(s))
+    except (ValueError, TypeError):
+        return default
+
 def preprocess_row(row):
     """
-    Replicates the logic from Section 2 of Kusuma's notebook:
-    - Fills missing values with 'Unknown'
-    - Processes salary range to an average
-    - Encodes categorical features
-    """
-    # 1. Handling Missing Categoricals
-    emp_type = str(row.get('employment_type', 'Unknown'))
-    req_edu = str(row.get('required_education', 'Unknown'))
-    
-    if pd.isna(emp_type) or emp_type == 'nan': emp_type = 'Unknown'
-    if pd.isna(req_edu) or req_edu == 'nan': req_edu = 'Unknown'
+    Builds the 7-feature numeric matrix used by the IsolationForest.
 
-    # 2. Salary Processing (Logic from Cell 12)
-    salary = row.get('salary_range', "")
-    salary_processed = 44000.0  # Training Median (from Cell 13)
+    Features:
+      salary_processed   — midpoint of salary_range (fallback: median 44000)
+      employment_type    — label-encoded (0-5)
+      has_company_logo   — binary (0/1)
+      has_questions      — binary (0/1); fraudsters rarely include screening questions
+      telecommuting      — binary (0/1)
+      required_education — label-encoded (0-13)
+      desc_len           — character length of description; very short = suspicious
+    """
+    # Categoricals
+    emp_type = str(row.get('employment_type', 'Unknown'))
+    req_edu  = str(row.get('required_education', 'Unknown'))
+    if pd.isna(emp_type) or emp_type == 'nan': emp_type = 'Unknown'
+    if pd.isna(req_edu)  or req_edu  == 'nan': req_edu  = 'Unknown'
+
+    # Salary midpoint
+    salary = row.get('salary_range', '')
+    salary_processed = 44000.0  # training median fallback
     if isinstance(salary, str) and '-' in salary:
         try:
             low, high = salary.split('-')
-            salary_processed = (int(low) + int(high)) / 2
-        except:
+            salary_processed = (float(low) + float(high)) / 2
+        except (ValueError, TypeError):
             pass
 
-   # 3. Categorical Encoding
+    # desc_len — compute on the fly if not pre-computed (e.g. val.csv)
+    desc_len = row.get('desc_len', None)
+    if desc_len is None or pd.isna(desc_len):
+        desc = row.get('description', '')
+        desc_len = len(str(desc)) if pd.notna(desc) else 0
+    desc_len = float(desc_len)
+
     feature_dict = {
-        'salary_processed': salary_processed,
-        'employment_type': emp_map.get(emp_type, 5),
-        'has_company_logo': int(row.get('has_company_logo', 0)), # Keep it simple
-        'required_education': edu_map.get(req_edu, 9)
+        'salary_processed':   salary_processed,
+        'employment_type':    emp_map.get(emp_type, 5),
+        'has_company_logo':   _safe_int(row.get('has_company_logo', 0)),
+        'has_questions':      _safe_int(row.get('has_questions', 0)),
+        'telecommuting':      _safe_int(row.get('telecommuting', 0)),
+        'required_education': edu_map.get(req_edu, 9),
+        'desc_len':           desc_len,
     }
-    
+
     return pd.DataFrame([feature_dict])
 
 def anomaly_score(row):
