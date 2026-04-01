@@ -19,23 +19,27 @@ def normal_row():
         'salary_range':        '60000-90000',
         'employment_type':     'Full-time',
         'has_company_logo':    1,
-        'required_education':  "Bachelor's Degree",
+        'has_questions':       1,
         'telecommuting':       0,
+        'required_education':  "Bachelor's Degree",
+        'description':         'x' * 1500,  # typical description length
     })
 
 
 def fraudulent_row():
     """
     A high-suspicion row: no logo, no salary, no employment type,
-    no required education — pattern associated with fraudulent postings
-    in the training EDA.
+    no required education, no screening questions, very short description
+    — pattern associated with fraudulent postings in the training EDA.
     """
     return pd.Series({
         'salary_range':        '',
         'employment_type':     float('nan'),
         'has_company_logo':    0,
-        'required_education':  float('nan'),
+        'has_questions':       0,
         'telecommuting':       0,
+        'required_education':  float('nan'),
+        'description':         'x' * 80,   # suspiciously short
     })
 
 
