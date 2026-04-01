@@ -51,6 +51,9 @@ models/*.pt
 models/*.pth
 models/*.json
 
+# Environment variables
+.env
+
 # OS
 .DS_Store
 Thumbs.db
