@@ -21,8 +21,17 @@ import pandas as pd
 MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'fusion_xgb.json')
 
 # Meta-features fed into XGBoost
-# Two stream scores + three lightweight metadata signals
-META_FEATURES = ['bert_score', 'outlier_score', 'has_company_logo', 'has_questions', 'desc_len']
+# Two stream scores + three legacy metadata signals + three adversarial-era signals
+META_FEATURES = [
+    'bert_score',       # Stream A — BERT fraud probability
+    'outlier_score',    # Stream B — IsolationForest decision function
+    'has_company_logo', # raw metadata
+    'has_questions',    # raw metadata
+    'desc_len',         # raw metadata
+    'domain_age_days',  # WHOIS domain age; very new (<30d) = high risk; -1 = unknown
+    'text_perplexity',  # GPT-2 perplexity; very low (<80) = likely AI-generated
+    'platform_risk',    # count of Telegram/WhatsApp/Signal mentions (0–3)
+]
 
 _fusion_model = None
 
@@ -50,7 +59,7 @@ def _load_model():
 def build_meta_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     Compute all meta-features for a DataFrame of job postings.
-    Runs both streams on every row and returns a meta-feature matrix.
+    Runs both streams and all three adversarial-era extractors on every row.
 
     Args:
         df: DataFrame with raw job posting columns.
@@ -60,6 +69,7 @@ def build_meta_features(df: pd.DataFrame) -> pd.DataFrame:
     """
     import outlier_stream
     import nlp_stream
+    import meta_features as mf
 
     records = []
     for _, row in df.iterrows():
@@ -69,12 +79,17 @@ def build_meta_features(df: pd.DataFrame) -> pd.DataFrame:
         desc = row.get('description', '')
         desc_len = len(str(desc)) if pd.notna(desc) else 0
 
+        adv = mf.extract_all(row)
+
         records.append({
             'bert_score':       bert_score,
             'outlier_score':    outlier_score,
             'has_company_logo': int(row.get('has_company_logo', 0) or 0),
             'has_questions':    int(row.get('has_questions', 0) or 0),
             'desc_len':         float(desc_len),
+            'domain_age_days':  float(adv['domain_age_days']),
+            'text_perplexity':  float(adv['text_perplexity']),
+            'platform_risk':    float(adv['platform_risk']),
         })
 
     return pd.DataFrame(records, columns=META_FEATURES)
@@ -145,6 +160,7 @@ def predict(row) -> dict:
     """
     import outlier_stream
     import nlp_stream
+    import meta_features as mf
 
     THRESHOLD = 0.3  # lowered from 0.5 — optimised from BERT threshold sweep
 
@@ -157,12 +173,17 @@ def predict(row) -> dict:
     desc = row.get('description', '')
     desc_len = len(str(desc)) if pd.notna(desc) else 0
 
+    adv = mf.extract_all(row)
+
     features = {
         'bert_score':       bert_score,
         'outlier_score':    outlier_score,
         'has_company_logo': int(row.get('has_company_logo', 0) or 0),
         'has_questions':    int(row.get('has_questions', 0) or 0),
         'desc_len':         float(desc_len),
+        'domain_age_days':  float(adv['domain_age_days']),
+        'text_perplexity':  float(adv['text_perplexity']),
+        'platform_risk':    float(adv['platform_risk']),
     }
 
     model = _load_model()

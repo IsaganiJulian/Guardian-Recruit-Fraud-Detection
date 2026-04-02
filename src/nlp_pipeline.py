@@ -1,3 +1,0 @@
-# Text preprocessing and scoring logic
-
-# ...implementation goes here...

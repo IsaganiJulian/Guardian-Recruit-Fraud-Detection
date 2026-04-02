@@ -159,6 +159,84 @@ TIER2_SIGNALS = [
         r'@yahoo\.com\b',
         r'@outlook\.com\b',
     ]),
+
+    # ── 2026-era signals ───────────────────────────────────────────────────────
+    # Source: BBB Scam Tracker 2024–2026, FTC Consumer Sentinel, McAfee Threat
+    # Intelligence Report 2025, FlexJobs fraud advisory 2026, Axis Intelligence
+
+    # BBB/AARP 2026: compensation guarantees are top red flag in current classifiers
+    # "$200–$800/day" salary ranges with WFH framing are primary 2026 fraud signal
+    ('compensation_guarantee', 0.30, [
+        r'earn\s+(up\s+to\s+)?\$[\d,]+\s+(per|a)\s+(day|week|hour|month)',
+        r'weekly\s+pay\s+guaranteed',
+        r'bonuses?\s+paid\s+(immediately|same[\s\-]day|instantly)',
+        r'guaranteed\s+(weekly\s+)?(income|earnings?|pay)',
+        r'\$[\d,]+\s+(per|a)\s+(day|week|month)\s+(working\s+)?from\s+home',
+        r'earn\s+up\s+to\s+\$[\d,]+',
+    ]),
+
+    # FTC 2025–2026: task scams — victims paid small amounts to like/rate content
+    # then asked for fees before larger "payout". FTC: this pattern is always a scam.
+    ('task_scam', 0.45, [
+        r'(like|rate|review|follow)\s+(social\s+media\s+)?posts?\s+(to\s+)?(earn|get\s+paid)',
+        r'earn\s+(money\s+)?by\s+(liking|rating|reviewing|following)',
+        r'paid?\s+(to\s+)?(like|rate|follow)\s+(on\s+)?(instagram|tiktok|youtube|facebook|x\.com)',
+        r'complete\s+(simple\s+)?tasks?\s+(online\s+)?for\s+(pay|payment|cash)',
+        r'app\s+optimization\s+(specialist|assistant|role)',
+    ]),
+
+    # BBB 2024–2026: upfront fee requests — training, equipment, starter kits
+    # Distinct from equipment_bait (which covers "equipment provided" promises)
+    ('upfront_fee_request', 0.40, [
+        r'refundable\s+(training|equipment|security|starter)\s+(fee|deposit)',
+        r'purchase\s+(your\s+)?(starter|welcome|onboarding)\s+kit',
+        r'pay\s+(for\s+)?your\s+(training|equipment|materials|uniform)',
+        r'(small\s+)?fee\s+(is\s+)?required\s+(to\s+)?(apply|begin|start|access)',
+        r'deposit\s+(will\s+be\s+)?refunded\s+(after|upon|within)',
+    ]),
+
+    # FlexJobs 2026: fake ATS / resume services that demand payment before "placement"
+    ('ats_fee_scam', 0.40, [
+        r'pay\s+(for\s+)?ats\s+access',
+        r'resume\s+optimization\s+(fee|service|required)',
+        r'application\s+processing\s+fee',
+        r'registration\s+fee\s+(to\s+)?(apply|access|begin)',
+        r'placement\s+fee\s+(required|applies)',
+    ]),
+
+    # Urgency patterns beyond existing artificial_urgency — 2026 job market fatigue exploitation
+    ('hiring_urgency_2026', 0.25, [
+        r'hiring\s+(immediately|now|today)\b',
+        r'start\s+(today|this\s+week|immediately|monday)',
+        r'limited\s+(slots?|positions?|openings?)\s+(available|remaining)',
+        r'cohort\s+(closes?|filling)\s+(friday|today|this\s+week)',
+        r'\d{2}[\s\-]hour\s+acceptance\s+window',
+        r'rolling\s+offers?\b',
+    ]),
+
+    # Signal app + lookalike domain patterns — extends messaging_app_interview
+    # and suspicious_email_domain with 2026-specific variants
+    ('signal_app_contact', 0.30, [
+        r'\bsignal\s+(app\b|messenger\b)',
+        r'(contact|interview|reach|onboard)\s+(us\s+)?(via|on|through)\s+signal\b',
+        r'\bon\s+signal\b.*\b(interview|coordinator|recruiter|hiring)',
+    ]),
+
+    ('lookalike_domain', 0.35, [
+        r'@[a-z0-9\-]+\-(hiring|careers?|jobs?|recruit|hr)\.',
+        r'@[a-z0-9\-]+\.(careers?|jobs?|hiring|recruit|staffing)\.',
+        r'careers?\.([a-z0-9\-]+\.(net|org|co|io|biz))\b',   # non-.com career domains
+    ]),
+
+    # Vague company descriptor — zero specificity is a weak but measurable signal
+    # Real listings name products, clients, or founding year; fraudulent ones use filler
+    ('vague_company_descriptor', 0.15, [
+        r'\bglobal\s+(consulting|solutions?|services?|logistics?)\s+(firm|company|group|corp)\b',
+        r'\bdigital\s+(solutions?|services?|marketing)\s+(company|firm|group|corp)\b',
+        r'\binternational\s+(business|trading|commerce)\s+(group|company|corp|ltd)\b',
+        r'\bworldwide\s+(logistics?|consulting|solutions?|services?)\b',
+        r'\bfast[\s\-]growing\s+(startup|company|firm)\b.*\bno\s+(website|address|linkedin)\b',
+    ]),
 ]
 
 # Combined — used by compute_keyword_score()
