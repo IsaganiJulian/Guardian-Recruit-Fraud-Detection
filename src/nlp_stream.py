@@ -18,6 +18,7 @@ import torch
 import torch.nn.functional as F
 
 from transformers import AutoTokenizer, AutoModelForSequenceClassification
+from transformers.utils import logging as transformers_logging
 
 # ── Constants ────────────────────────────────────────────────────────────────
 MODEL_NAME = 'bert-base-uncased'
@@ -47,7 +48,12 @@ def _load_model():
     _device    = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     _tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
 
-    _model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
+    previous_verbosity = transformers_logging.get_verbosity()
+    transformers_logging.set_verbosity_error()
+    try:
+        _model = AutoModelForSequenceClassification.from_pretrained(MODEL_NAME, num_labels=2)
+    finally:
+        transformers_logging.set_verbosity(previous_verbosity)
 
     model_path = os.path.abspath(MODEL_PATH)
     if os.path.exists(model_path) and os.path.getsize(model_path) > 0:

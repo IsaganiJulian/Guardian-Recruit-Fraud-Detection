@@ -37,10 +37,11 @@ def _load_model():
         return None
 
     try:
-        from xgboost import XGBClassifier
-        m = XGBClassifier()
-        m.load_model(path)
-        _fusion_model = m
+        import xgboost as xgb
+        # Load as Booster — avoids XGBClassifier._estimator_type issues in xgboost >= 2.x
+        booster = xgb.Booster()
+        booster.load_model(path)
+        _fusion_model = booster
         return _fusion_model
     except Exception:
         return None
@@ -167,11 +168,13 @@ def predict(row) -> dict:
     model = _load_model()
 
     if model is not None:
-        X = pd.DataFrame([features], columns=META_FEATURES)
-        fraud_score = float(model.predict_proba(X)[0, 1])
+        import xgboost as xgb
+        X   = pd.DataFrame([features], columns=META_FEATURES)
+        dm  = xgb.DMatrix(X, feature_names=META_FEATURES)
+        raw = model.predict(dm)          # Booster.predict returns probabilities for binary classification
+        fraud_score = float(raw[0])
     else:
         # Fusion model not trained yet — fall back to BERT score
-        # (outlier_score is on a different scale so can't average directly)
         fraud_score = bert_score
 
     label = 'FRAUD' if fraud_score >= THRESHOLD else 'LEGITIMATE'
