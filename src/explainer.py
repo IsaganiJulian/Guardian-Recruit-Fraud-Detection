@@ -13,6 +13,7 @@ import os
 import requests
 from dotenv import load_dotenv
 from vector_store import search_similar
+from shap_explainer import explain_shap
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 
@@ -50,7 +51,7 @@ def _ollama_available() -> bool:
 
 # ── Prompt builder ────────────────────────────────────────────────────────────
 
-def _build_prompt(result: dict, similar: list[dict]) -> str:
+def _build_prompt(result: dict, similar: list[dict], shap_summary: str) -> str:
     features = result['features']
 
     rag_context = 'No closely matching fraud cases found.'
@@ -60,6 +61,12 @@ def _build_prompt(result: dict, similar: list[dict]) -> str:
             for i, c in enumerate(similar[:2])
         )
 
+    domain_age  = features.get('domain_age_days', -1)
+    domain_line = (
+        f'Unknown (not found in text)' if domain_age == -1
+        else f'{int(domain_age)} days old'
+    )
+
     return (
         f"Job posting analysis:\n"
         f"- Fraud score: {result['fraud_score']:.0%}\n"
@@ -68,10 +75,16 @@ def _build_prompt(result: dict, similar: list[dict]) -> str:
         f"- Outlier score: {result['outlier_score']:.3f}\n"
         f"- Has company logo: {'Yes' if features.get('has_company_logo') else 'No'}\n"
         f"- Has screening questions: {'Yes' if features.get('has_questions') else 'No'}\n"
-        f"- Description length: {int(features.get('desc_len', 0))} characters\n\n"
+        f"- Description length: {int(features.get('desc_len', 0))} characters\n"
+        f"- Domain age: {domain_line}\n"
+        f"- Text perplexity (AI-likelihood): {features.get('text_perplexity', 'N/A'):.1f}"
+        f"  (lower = more likely AI-generated; threshold: 80)\n"
+        f"- Platform risk score: {int(features.get('platform_risk', 0))} / 3\n\n"
+        f"SHAP reasoning: {shap_summary}\n\n"
         f"Similar known fraud cases:\n{rag_context}\n\n"
         f"Explain why this posting "
-        f"{'was flagged as fraudulent' if result['label'] == 'FRAUD' else 'appears legitimate'}."
+        f"{'was flagged as fraudulent' if result['label'] == 'FRAUD' else 'appears legitimate'}. "
+        f"Reference the SHAP reasoning and specific feature values above."
     )
 
 
@@ -123,7 +136,7 @@ def _call_ollama(prompt: str) -> str:
 
 # ── Template fallback ─────────────────────────────────────────────────────────
 
-def _template_explanation(result: dict, similar: list[dict]) -> str:
+def _template_explanation(result: dict, similar: list[dict], shap_summary: str) -> str:
     score    = result['fraud_score']
     bert     = result['bert_score']
     features = result['features']
@@ -135,8 +148,8 @@ def _template_explanation(result: dict, similar: list[dict]) -> str:
         )
 
     parts = [
-        f"This posting received a fraud score of {score:.0%}, "
-        f"primarily driven by suspicious language patterns (BERT score: {bert:.2f})."
+        f"This posting received a fraud score of {score:.0%}. "
+        f"{shap_summary}."
     ]
     if not features.get('has_company_logo'):
         parts.append("The absence of a company logo is a strong fraud indicator.")
@@ -146,6 +159,13 @@ def _template_explanation(result: dict, similar: list[dict]) -> str:
         parts.append("The description is unusually short — a common pattern in fraudulent listings.")
     if features.get('outlier_score', 0) < 0:
         parts.append("The metadata profile is anomalous compared to legitimate postings.")
+    domain_age = features.get('domain_age_days', -1)
+    if domain_age != -1 and domain_age < 30:
+        parts.append(f"The company domain was registered only {domain_age} days ago, suggesting throwaway scam infrastructure.")
+    if features.get('text_perplexity', 200) < 80:
+        parts.append("The text reads as highly AI-generated — unusually fluent with no company-specific detail.")
+    if features.get('platform_risk', 0) > 0:
+        parts.append("The posting references non-standard communication channels (Telegram, WhatsApp, or Signal).")
     if similar:
         parts.append(f'This closely resembles known scams, including: "{similar[0]["title"]}".')
 
@@ -159,18 +179,24 @@ def explain(result: dict, posting_text: str) -> dict:
     Generate a structured explanation for a fraud detection result.
 
     Args:
-        result:       Output dict from pipeline.predict().
+        result:       Output dict from fusion_layer.predict() / main.score().
         posting_text: Combined posting text for ChromaDB similarity query.
 
     Returns:
         {
-            "explanation":   str  — plain-English explanation,
-            "similar_cases": list — top-3 similar known fraud postings,
-            "source":        str  — "groq" | "ollama" | "template",
+            "explanation":      str  — plain-English narrative explanation,
+            "reasoning_summary": str — SHAP-derived one-line reasoning,
+            "shap_contributions": list — ranked FeatureContribution namedtuples,
+            "similar_cases":    list — top-3 similar known fraud postings,
+            "source":           str  — "groq" | "ollama" | "template",
         }
     """
+    # SHAP runs first — it's always fast and its output enriches the LLM prompt
+    shap_result  = explain_shap(result)
+    shap_summary = shap_result['reasoning_summary']
+
     similar = search_similar(posting_text, n=3)
-    prompt  = _build_prompt(result, similar)
+    prompt  = _build_prompt(result, similar, shap_summary)
 
     # Priority: Groq → Ollama → Template
     for backend_name, available_fn, call_fn in [
@@ -180,15 +206,19 @@ def explain(result: dict, posting_text: str) -> dict:
         if available_fn():
             try:
                 return {
-                    'explanation':   call_fn(),
-                    'similar_cases': similar,
-                    'source':        backend_name,
+                    'explanation':        call_fn(),
+                    'reasoning_summary':  shap_summary,
+                    'shap_contributions': shap_result['contributions'],
+                    'similar_cases':      similar,
+                    'source':             backend_name,
                 }
             except Exception:
                 continue  # fall through to next backend
 
     return {
-        'explanation':   _template_explanation(result, similar),
-        'similar_cases': similar,
-        'source':        'template',
+        'explanation':        _template_explanation(result, similar, shap_summary),
+        'reasoning_summary':  shap_summary,
+        'shap_contributions': shap_result['contributions'],
+        'similar_cases':      similar,
+        'source':             'template',
     }
