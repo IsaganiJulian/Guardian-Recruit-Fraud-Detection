@@ -201,7 +201,7 @@ with st.sidebar:
     st.markdown("### [ GLOBAL FEATURE IMPORTANCE ]")
     _beeswarm = os.path.join(REPO_ROOT, 'docs', 'shap_beeswarm.png')
     if os.path.exists(_beeswarm):
-        st.image(_beeswarm, use_container_width=True)
+        st.image(_beeswarm, use_column_width=True)
         st.caption('SHAP beeswarm — 500 validation postings')
 
     st.divider()

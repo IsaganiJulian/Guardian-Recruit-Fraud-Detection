@@ -17,6 +17,12 @@ HF_MODELS = {
     "nlp_bert.pth":       os.path.join(REPO_ROOT, "models", "nlp_bert.pth"),
 }
 
+# train.csv is required by ChromaDB vector store at startup — host on HF Hub
+# Upload with: hf upload ijih14/guardian-recruit-models data/processed/train.csv train.csv
+HF_DATA = {
+    "train.csv": os.path.join(REPO_ROOT, "data", "processed", "train.csv"),
+}
+
 DATA_DEST = os.path.join(REPO_ROOT, "data", "processed")
 
 
@@ -46,21 +52,41 @@ def _download_models():
 
 
 def _download_data():
-    existing = [f for f in os.listdir(DATA_DEST) if f.endswith('.csv')] \
-               if os.path.exists(DATA_DEST) else []
-    if existing:
-        print(f"[startup] SKIP  data/processed/ ({len(existing)} CSV files present)")
+    os.makedirs(DATA_DEST, exist_ok=True)
+
+    # Step 1 — Download train.csv from HF Hub (required for ChromaDB at startup)
+    try:
+        from huggingface_hub import hf_hub_download
+        for filename, dest_path in HF_DATA.items():
+            if os.path.exists(dest_path) and os.path.getsize(dest_path) > 1000:
+                print(f"[startup] SKIP  {filename}")
+                continue
+            print(f"[startup] DOWN  {filename} from HF Hub ...")
+            hf_hub_download(
+                repo_id=HF_REPO,
+                filename=filename,
+                local_dir=DATA_DEST,
+            )
+            print(f"[startup] OK    {filename}")
+    except Exception as e:
+        print(f"[startup] FAIL  train.csv from HF Hub — {e}")
+
+    # Step 2 — Download remaining CSVs from Google Drive
+    existing = [f for f in os.listdir(DATA_DEST) if f.endswith('.csv')]
+    remaining = [f for f in ['val.csv', 'test.csv', 'FINAL_AUGMENTED_TRAINING.csv']
+                 if f not in existing]
+    if not remaining:
+        print("[startup] SKIP  remaining CSVs already present")
         return
 
     try:
         import gdown, shutil, tempfile
     except ImportError:
-        print("[startup] gdown not installed — skipping data download.")
+        print("[startup] gdown not installed — skipping Google Drive download.")
         return
 
-    os.makedirs(DATA_DEST, exist_ok=True)
     url = f"https://drive.google.com/drive/folders/{DATA_FOLDER_ID}"
-    print("[startup] DOWN  data/processed/ from Google Drive ...")
+    print("[startup] DOWN  remaining CSVs from Google Drive ...")
     try:
         with tempfile.TemporaryDirectory() as staging:
             gdown.download_folder(url, output=staging, quiet=True, use_cookies=False)
@@ -69,11 +95,12 @@ def _download_data():
             src_dir = os.path.join(staging, subfolders[0]) if subfolders else staging
             for fname in os.listdir(src_dir):
                 src = os.path.join(src_dir, fname)
-                if os.path.isfile(src):
-                    shutil.move(src, os.path.join(DATA_DEST, fname))
+                dest = os.path.join(DATA_DEST, fname)
+                if os.path.isfile(src) and not os.path.exists(dest):
+                    shutil.move(src, dest)
                     print(f"[startup] OK    data/processed/{fname}")
     except Exception as e:
-        print(f"[startup] FAIL  data/processed/ — {e}")
+        print(f"[startup] FAIL  Google Drive download — {e}")
 
 
 def ensure_assets():
