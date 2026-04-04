@@ -12,10 +12,10 @@ import pandas as pd
 
 sys.path.insert(0, os.path.dirname(__file__))
 
-from preprocessing import GuardianCleaner
-import nlp_stream
-import outlier_stream
-import fusion_layer
+from streams.nlp.preprocessing import GuardianCleaner
+from streams.nlp import nlp_stream
+from streams.outlier import outlier_stream
+from streams.fusion import fusion_layer
 
 _cleaner = GuardianCleaner()
 

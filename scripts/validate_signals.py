@@ -32,7 +32,7 @@ TRAIN_PATH = os.path.join(REPO_ROOT, 'data', 'processed', 'train_clean_v1.csv')
 SYNTH_DIR  = os.path.join(REPO_ROOT, 'data', 'external')
 sys.path.insert(0, os.path.join(REPO_ROOT, 'src'))
 
-from text_signals import SIGNALS, TIER1_SIGNALS, TIER2_SIGNALS
+from streams.nlp.text_signals import SIGNALS, TIER1_SIGNALS, TIER2_SIGNALS
 
 # Map scheme file names → signal names they should trigger
 # Used for Pass 2 "within-scheme recall" check
