@@ -8,7 +8,7 @@ import os
 import sys
 
 REPO_ROOT     = os.path.dirname(__file__)
-HF_REPO       = "ijah14/guardian-recruit-models"
+HF_REPO       = "ijih14/guardian-recruit-models"
 DATA_FOLDER_ID = "1jHSmyPs9_1Z8JgiNfZCjJ_BhSnar5rAZ"
 
 HF_MODELS = {
