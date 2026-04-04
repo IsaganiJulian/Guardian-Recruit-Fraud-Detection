@@ -65,7 +65,7 @@ def _load_explainer():
         import xgboost as xgb
         import os
 
-        model_path = os.path.join(os.path.dirname(__file__), '..', 'models', 'fusion_xgb.json')
+        model_path = os.path.join(os.path.dirname(__file__), '..', '..', 'models', 'fusion_xgb.json')
         model_path = os.path.abspath(model_path)
 
         if not os.path.exists(model_path) or os.path.getsize(model_path) == 0:

@@ -12,8 +12,8 @@ Set GROQ_API_KEY in .env to enable Groq.
 import os
 import requests
 from dotenv import load_dotenv
-from vector_store import search_similar
-from shap_explainer import explain_shap
+from .vector_store import search_similar
+from .shap_explainer import explain_shap
 
 load_dotenv(os.path.join(os.path.dirname(__file__), '..', '.env'))
 

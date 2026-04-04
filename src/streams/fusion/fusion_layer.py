@@ -18,7 +18,7 @@ import joblib
 import numpy as np
 import pandas as pd
 
-MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'fusion_xgb.json')
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'models', 'fusion_xgb.json')
 
 # Meta-features fed into XGBoost
 # Two stream scores + three legacy metadata signals + three adversarial-era signals
@@ -67,9 +67,9 @@ def build_meta_features(df: pd.DataFrame) -> pd.DataFrame:
     Returns:
         DataFrame with columns matching META_FEATURES.
     """
-    import outlier_stream
-    import nlp_stream
-    import meta_features as mf
+    from streams.nlp import nlp_stream
+    from streams.outlier import outlier_stream
+    from streams.fusion import meta_features as mf
 
     records = []
     for _, row in df.iterrows():
@@ -158,14 +158,20 @@ def predict(row) -> dict:
             "features":       dict of all meta-features,
         }
     """
-    import outlier_stream
-    import nlp_stream
-    import meta_features as mf
+    from streams.nlp import nlp_stream
+    from streams.outlier import outlier_stream
+    from streams.fusion import meta_features as mf
 
     THRESHOLD = 0.3  # lowered from 0.5 — optimised from BERT threshold sweep
 
     bert_score    = nlp_stream.predict_proba_from_row(row)
     outlier_score = outlier_stream.anomaly_score(row)
+
+    # Lite mode: BERT weights not present — bert_score returns -1.0 as sentinel.
+    # Substitute keyword_score if available, else use a neutral 0.5 stub.
+    _bert_lite_mode = (bert_score == -1.0)
+    if _bert_lite_mode:
+        bert_score = float(row.get('_keyword_score', 0.5))
 
     if isinstance(row, dict):
         row = pd.Series(row)

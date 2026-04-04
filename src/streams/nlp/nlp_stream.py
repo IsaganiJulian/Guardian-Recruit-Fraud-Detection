@@ -23,7 +23,7 @@ from transformers.utils import logging as transformers_logging
 # ── Constants ────────────────────────────────────────────────────────────────
 MODEL_NAME = 'bert-base-uncased'
 MAX_LENGTH = 128
-MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', 'models', 'nlp_bert.pth')
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'models', 'nlp_bert.pth')
 
 # ── Module-level state (loaded once on first call) ───────────────────────────
 _tokenizer = None
@@ -38,12 +38,28 @@ def _clean_text(text: str) -> str:
     return text.strip()
 
 
+_bert_available = None   # None = unchecked, True/False after first load attempt
+
+
+def bert_model_available() -> bool:
+    """Return True if the fine-tuned BERT weights file exists and is non-empty."""
+    global _bert_available
+    if _bert_available is None:
+        path = os.path.abspath(MODEL_PATH)
+        _bert_available = os.path.exists(path) and os.path.getsize(path) > 1_000_000
+    return _bert_available
+
+
 def _load_model():
-    """Load tokenizer and model from models/nlp_bert.pth (once per process)."""
+    """Load tokenizer and model from models/nlp_bert.pth (once per process).
+    Skipped silently if the weights file is absent — lite deployment mode."""
     global _tokenizer, _model, _device
 
     if _model is not None:
         return  # already loaded
+
+    if not bert_model_available():
+        return  # lite mode — caller checks _model is None and uses fallback
 
     _device    = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
     _tokenizer = AutoTokenizer.from_pretrained(MODEL_NAME)
@@ -79,6 +95,11 @@ def predict_proba(text: str) -> float:
         Higher = more likely fraud.
     """
     _load_model()
+
+    if _model is None:
+        # Lite mode — BERT weights not present.
+        # Return -1.0 as sentinel so callers can substitute keyword score.
+        return -1.0
 
     cleaned = _clean_text(text)
     enc = _tokenizer(

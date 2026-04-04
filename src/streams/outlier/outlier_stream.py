@@ -48,7 +48,7 @@ edu_map = {
 
 # Load the model
 # Path assumes this script is in /src and model is in /models
-MODEL_PATH = os.path.join(os.path.dirname(__file__), "../models/outlier_forest.pkl")
+MODEL_PATH = os.path.join(os.path.dirname(__file__), '..', '..', '..', 'models', 'outlier_forest.pkl')
 
 def load_model():
     if os.path.exists(MODEL_PATH):

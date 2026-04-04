@@ -8,7 +8,7 @@ Run from repo root:
 import math
 import pandas as pd
 import pytest
-import outlier_stream
+from streams.outlier import outlier_stream
 
 
 # ── Shared sample rows ────────────────────────────────────────────────────────

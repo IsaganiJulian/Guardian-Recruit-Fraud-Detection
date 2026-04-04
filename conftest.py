@@ -4,7 +4,7 @@ import pandas as pd
 import pytest
 from sklearn.ensemble import IsolationForest
 
-# Add src/ to sys.path so tests can import outlier_stream directly
+# Add src/ to sys.path so tests can import streams.outlier.outlier_stream
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "src"))
 
 
@@ -18,7 +18,7 @@ def patch_outlier_model():
     scope="session"  — fitted once per test run, not per test.
     autouse=True     — applied to every test automatically.
     """
-    import outlier_stream
+    from streams.outlier import outlier_stream
 
     # Synthetic training data: 8 normal + 2 fraud — clearly separated
     # Normal: full-time, logo, questions, decent salary, long description
