@@ -8,7 +8,19 @@ class GuardianCleaner:
 
     def _clean_types(self, df):
         # Standardize obvious null-like values
-        df.replace(['', ' ', 'none', 'None', 'NaN', 'unknown', 'Unknown'], np.nan, inplace=True)
+        null_like_values = {
+            col: {
+                '': np.nan,
+                ' ': np.nan,
+                'none': np.nan,
+                'None': np.nan,
+                'NaN': np.nan,
+                'unknown': np.nan,
+                'Unknown': np.nan,
+            }
+            for col in df.columns
+        }
+        df = df.replace(null_like_values).infer_objects(copy=False)
 
         # Robust boolean mapping for t/f, true/false, 1/0
         bool_map = {
