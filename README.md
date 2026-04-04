@@ -69,7 +69,7 @@ Guardian-Recruit-Fraud-Detection/
 ├── notebooks/
 │   ├── 01_Initial_EDA.ipynb        # Data understanding & splitting
 │   ├── 02_nlp_stream_training.ipynb # BERT fine-tuning (Colab T4 GPU)
-│   ├── 03_outlier_modeling.ipynb   # IsolationForest training
+│   ├── 03_outlier_phase3.ipynb     # IsolationForest training + confusion matrix
 │   ├── 04_fusion_layer_shap.ipynb  # XGBoost fusion + SHAP (Colab T4 GPU)
 │   ├── 05_live_scraper_test.ipynb  # 2026 live data validation
 │   ├── 06_data_augmentation.ipynb  # SMOTENC + synthetic fraud generation
@@ -369,7 +369,7 @@ GROQ_API_KEY=gsk_...        # For LLM narrative explanations (free tier)
 | **Isagani Julian Hernandez** | Team Lead · Fusion Layer · Explainability · Data Pipeline | `src/fusion_layer.py`, `src/shap_explainer.py`, `src/explainer.py`, `src/meta_features.py`, `src/text_signals.py`, `scripts/generate_synthetic_fraud.py`, `app.py`, `notebooks/04_fusion_layer_shap.ipynb`, `notebooks/06_data_augmentation.ipynb` |
 | **Hemanth Kumar Gunda** | NLP Stream A — BERT Fine-tuning | `src/nlp_stream.py`, `models/nlp_bert.pth`, `notebooks/02_nlp_stream_training.ipynb` |
 | **Srijitha Ungarala** | NLP Stream A — Preprocessing & Linguistic EDA | `src/preprocessing.py`, `notebooks/01_Initial_EDA.ipynb` |
-| **Kusuma Satya Sreeja Chalasani** | Outlier Detection Stream B — IsolationForest | `src/outlier_stream.py`, `models/outlier_forest.pkl`, `notebooks/03_outlier_modeling.ipynb`, `tests/test_outlier_stream.py` |
+| **Kusuma Satya Sreeja Chalasani** | Outlier Detection Stream B — IsolationForest | `src/outlier_stream.py`, `models/outlier_forest.pkl`, `notebooks/03_outlier_phase3.ipynb`, `tests/test_outlier_stream.py` |
 
 ---
 
