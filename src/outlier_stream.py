@@ -110,24 +110,29 @@ def preprocess_row(row):
         desc_len = len(str(desc)) if pd.notna(desc) else 0
     desc_len = float(desc_len)
 
-    feature_dict = {
-        'salary_processed':   salary_processed,
-        'employment_type':    emp_map.get(emp_type, 5),
-        'has_company_logo':   _safe_int(row.get('has_company_logo', 0)),
-        'has_questions':      _safe_int(row.get('has_questions', 0)),
-        'telecommuting':      _safe_int(row.get('telecommuting', 0)),
-        'required_education': edu_map.get(req_edu, 9),
-        'desc_len':           desc_len,
-    }
+    # Order must exactly match the order used during IsolationForest training
+    feature_values = [
+        salary_processed,
+        emp_map.get(emp_type, 5),
+        _safe_int(row.get('has_company_logo', 0)),
+        _safe_int(row.get('has_questions', 0)),
+        _safe_int(row.get('telecommuting', 0)),
+        edu_map.get(req_edu, 9),
+        desc_len,
+    ]
 
-    return pd.DataFrame([feature_dict])
+    # Return as numpy array (no feature names) to avoid sklearn feature-name mismatch
+    import numpy as np
+    return np.array([feature_values], dtype=float)
 
 def anomaly_score(row):
     """Returns the decision function score (lower is more anomalous)."""
     if model is None:
         return 0.0
-    input_df = preprocess_row(row)
-    return float(model.decision_function(input_df)[0])
+    import warnings
+    with warnings.catch_warnings():
+        warnings.simplefilter("ignore")
+        return float(model.decision_function(preprocess_row(row))[0])
 
 def anomaly_predict(row):
     """Returns 1 for normal, -1 for anomaly."""

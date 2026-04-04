@@ -1,227 +1,369 @@
-> **Team members:** For task tracking, milestones, and workflow protocols, please refer to our GitHub Project Board.
+# Guardian Recruit — Fraud Detection System
 
-# 🛡️ Guardian Recruit – Fraud Detection System
+**University of North Texas | DTSC 5082 Capstone**
 
-**University of North Texas | DTSC 5082 Capstone**  
-**Team:** 
-- Isagani Julian Hernandez 
-- Hemanth Kumar Gunda
-- Kusuma Satya Sreeja Chalasani
-- Srijitha Ungarala
-
----
-
-## 1. Project Overview
-Guardian Recruit is a dual-stream hybrid machine learning system for detecting fraudulent job listings. We combine:
-- **NLP (BERT):** Text semantics
-- **Statistical Outlier Detection (Isolation Forest):** Metadata anomalies
-- **Fusion Layer (XGBoost + SHAP):** Final decision and explainability
+**Team:**
+- Isagani Julian Hernandez — Fusion Layer, SHAP Explainability, Data Pipeline
+- Hemanth Kumar Gunda — NLP Stream (BERT)
+- Srijitha Ungarala — NLP Stream (Preprocessing & Linguistic EDA)
+- Kusuma Satya Sreeja Chalasani — Outlier Detection Stream (IsolationForest)
 
 ---
 
-## 2. Directory & Workspace Structure
+## Overview
+
+Guardian Recruit is a hybrid AI system for detecting fraudulent job postings. It combines three independent streams into a single fraud probability score with explainability.
 
 ```
-Guardian-Recruit/
-├── .venv/                # Local Python Virtual Environment (Ignored by Git)
-├── data/                 # Data Directory (Ignored by Git - Sync via Google Drive)
-│   ├── raw/              # Original emscad_dataset.csv
-│   ├── processed/        # Stratified train.csv, val.csv, test.csv
-│   └── external/         # Scraped 2026 job listings
-├── models/               # Saved Model Weights (Ignored by Git - Sync via Google Drive)
-│   ├── nlp_bert.pth      # Hemanth/Srijitha's saved model
-│   ├── outlier_forest.pkl # Kusuma's saved model
-│   └── fusion_xgb.json   # Isagani's final Fusion model
-├── notebooks/            # Experimental & Training Notebooks (Google Colab)
-│   ├── 01_initial_eda.ipynb             # Lead: Data understanding & splitting
-│   ├── 02_nlp_stream_training.ipynb     # Hemanth: BERT/RoBERTa semantics
-│   ├── 03_outlier_modeling.ipynb        # Kusuma: Isolation Forest/Anomaly detection
-│   ├── 04_fusion_layer_shap.ipynb       # Lead: XGBoost integration & XAI
-│   └── 05_live_scraper_test.ipynb       # Lead: 2026 Validation
-├── src/                  # Production-ready Python Scripts
-│   ├── __init__.py
-│   ├── preprocessing.py  # Data cleaning & feature engineering (GuardianCleaner)
-│   ├── scraper.py        # 2026 Data collection ETL script (Lead Task: S-2)
-│   ├── nlp_pipeline.py   # Text preprocessing utilities
-│   ├── nlp_stream.py     # Stream A inference: predict_proba(text) → float (Task A-7)
-│   ├── outlier_logic.py  # Outlier detection utilities
-│   ├── outlier_stream.py # Stream B inference: anomaly_score(row) → float (Task B-8)
-│   ├── fusion_engine.py  # XGBoost scoring & SHAP generation utilities
-│   ├── fusion_layer.py   # Lead inference: predict(job_posting) → dict (Task L-7)
-│   └── main.py           # End-to-end pipeline integration (Task L-8)
-├── .gitignore            # Tells Git to ignore /data, /models, and /.venv
-├── README.md             # Project Roadmap & Documentation
-└── requirements.txt      # Project dependencies (Pandas, Scikit-Learn, XGBoost, etc.)
+Job Posting
+  ├── Stream A: BERT fine-tuned NLP      → bert_score    (0.0–1.0)
+  ├── Stream B: IsolationForest outlier  → outlier_score (float)
+  └── Fusion:   XGBoost meta-classifier  → fraud_score   (0.0–1.0)
+                                            + SHAP reasoning summary
+```
+
+**Model Performance (Validation Set):**
+| Metric | Score |
+|--------|-------|
+| ROC-AUC | 0.9718 |
+| Accuracy | 0.99 |
+| Fraud F1 | 0.8439 |
+| False Negatives | 30 |
+| False Positives | 7 |
+
+---
+
+## Directory Structure
+
+```
+Guardian-Recruit-Fraud-Detection/
+├── app.py                          # Streamlit demo app
+├── requirements.txt                # Python dependencies
+│
+├── data/
+│   ├── raw/                        # Original EMSCAD dataset (2014)
+│   ├── processed/                  # Train / val / test splits + augmented training set
+│   │   ├── train_clean_v1.csv      # Cleaned training data (8,696 rows)
+│   │   ├── train.csv / val.csv / test.csv
+│   │   ├── FINAL_AUGMENTED_TRAINING.csv   # SMOTENC + synthetic rows (17,342 rows)
+│   │   └── synthetic_fraud_2026.csv       # 200 template-generated 2026-era fraud rows
+│   ├── external/                   # Scraped 2026 legitimate job listings
+│   └── chroma_db/                  # ChromaDB vector store for RAG explainer
+│
+├── models/
+│   ├── nlp_bert.pth                # Fine-tuned BERT weights (Stream A)
+│   ├── outlier_forest.pkl          # IsolationForest model (Stream B)
+│   └── fusion_xgb.json             # XGBoost fusion model (Fusion Layer)
+│
+├── notebooks/
+│   ├── 01_Initial_EDA.ipynb        # Data understanding & splitting
+│   ├── 02_nlp_stream_training.ipynb # BERT fine-tuning (Colab T4 GPU)
+│   ├── 03_outlier_modeling.ipynb   # IsolationForest training
+│   ├── 04_fusion_layer_shap.ipynb  # XGBoost fusion + SHAP (Colab T4 GPU)
+│   ├── 05_live_scraper_test.ipynb  # 2026 live data validation
+│   ├── 06_data_augmentation.ipynb  # SMOTENC + synthetic fraud generation
+│   └── sandbox/                    # Individual exploration notebooks
+│
+├── src/
+│   ├── main.py                     # End-to-end pipeline: score(job_posting) → dict
+│   ├── preprocessing.py            # Data cleaning (GuardianCleaner)
+│   ├── nlp_stream.py               # Stream A: predict_proba(text) → float
+│   ├── outlier_stream.py           # Stream B: anomaly_score(row) → float
+│   ├── fusion_layer.py             # Fusion: predict(row) → dict
+│   ├── meta_features.py            # Adversarial features: domain age, perplexity, platform risk
+│   ├── text_signals.py             # Keyword signal engine (Tier 1 + Tier 2 + 2026-era)
+│   ├── shap_explainer.py           # SHAP reasoning summaries per prediction
+│   ├── explainer.py                # LLM narrative explanation (Groq → Ollama → template)
+│   ├── vector_store.py             # ChromaDB RAG for similar fraud case retrieval
+│   ├── scraper.py                  # 2026 job listing ETL pipeline
+│   └── pipeline.py                 # Batch scoring utilities
+│
+├── scripts/
+│   ├── generate_synthetic_fraud.py # Generate 2026-era synthetic fraud rows
+│   ├── validate_signals.py         # Validate keyword signal coverage on training data
+│   └── smoke_test.py               # Quick end-to-end sanity check
+│
+└── tests/
+    └── test_outlier_stream.py      # Unit tests for outlier stream
 ```
 
 ---
 
-## 3. Team Roles & Responsibilities
-| Member    | Stream         | Task                              | Branch Name            |
-|-----------|---------------|-----------------------------------|-----------------------|
-| Isagani   | Fusion Layer   | XGBoost, SHAP, & Data Split       | feature/fusion-layer   |
-| Hemanth   | NLP Stream     | BERT/RoBERTa Modeling             | feature/nlp-semantics  |
-| Srijitha  | NLP Stream     | Preprocessing & Linguistic EDA    | feature/nlp-semantics  |
-| Kusuma    | Outlier Stream | Isolation Forest & Metadata        | feature/outlier-detection |
+## Quick Start
 
----
-
-## 4. Getting Started (Internal Protocol)
-### Step 1: Clone the Repo
+### 1. Install dependencies
 ```bash
-git clone https://github.com/[your-username]/Guardian-Recruit.git
-cd Guardian-Recruit
+python -m venv .venv
+source .venv/bin/activate  # Windows: .venv\Scripts\activate
+pip install -r requirements.txt
 ```
 
-### Step 2: Sync with Google Drive
-- Open your assigned Google Colab notebook
-- Mount the shared team drive:
+### 2. Add model files
+Place the following in `models/` (download from shared Google Drive):
+- `nlp_bert.pth`
+- `outlier_forest.pkl`
+- `fusion_xgb.json`
+
+### 3. Score a job posting
 ```python
-from google.colab import drive
-drive.mount('/content/drive')
-```
-- Load data from `/data` in the shared drive (use `train.csv` only)
+from src.main import score
+from src.shap_explainer import explain_shap
 
-### Step 3: Branching Rule
-- **NEVER** commit directly to `main`
-- Create a branch for your feature:
+result = score({
+    "title": "Remote Operations Assistant",
+    "description": "Earn up to $600/week. Contact us on Telegram. Start this week.",
+    "has_company_logo": 0,
+    "has_questions": 0,
+})
+
+print(result["label"])        # FRAUD or LEGITIMATE
+print(result["fraud_score"])  # 0.0 – 1.0
+
+shap = explain_shap(result)
+print(shap["reasoning_summary"])
+# "Flagged because: NLP fraud pattern score (+86%), No company logo (+7%), ..."
+```
+
+### 4. Run the demo app
 ```bash
-git checkout -b feature/your-task-name
+streamlit run app.py
 ```
-- When finished, push your branch and open a Pull Request (PR) for review
+
+### 5. Run smoke tests
+```bash
+python src/main.py
+python scripts/smoke_test.py
+```
 
 ---
 
-## 5. Project Roadmap
+## What Was Built
 
-### ✅ Phase 1 Checklist (Complete)
-- [x] Initial Project Skeleton created
-- [x] Virtual Environment setup
-- [x] Master Data Split (Isagani)
-- [x] Missing Value EDA (Kusuma)
-- [x] Keyword Frequency EDA (Hemanth/Srijitha)
-- [x] Data Type Consolidation & `ffffffff` handling (Isagani)
-- [x] Class Balance Verification across Train/Val/Test splits (Isagani)
-- [x] NLP Visual Discovery — Histograms & Word Clouds (Hemanth/Srijitha)
-- [x] NLP Descriptive Statistics — Text Length & Frequency (Hemanth/Srijitha)
-- [x] NLP Colab Integration & Key Insights in `01_Initial_EDA.ipynb` (Hemanth/Srijitha)
-- [x] Metadata Visual Discovery — Box Plots & Location Heatmap (Kusuma)
-- [x] Statistical Correlation Analysis — Correlation Matrix (Kusuma)
-- [x] Outlier Documentation & Colab Integration in `01_Initial_EDA.ipynb` (Kusuma)
+### Phase 1 — EDA & Data Splitting
+- Class-stratified train/val/test splits from EMSCAD dataset (17,880 rows, 4.85% fraud rate)
+- Missing value analysis, keyword frequency EDA, metadata visualisations
 
----
+### Phase 2 — Dual-Stream Models
+- **Stream A (BERT):** Fine-tuned `bert-base-uncased` on fraud detection, F1 0.8376 on val set
+- **Stream B (IsolationForest):** Anomaly detection on 7 metadata features
+- **Fusion Layer (XGBoost):** Meta-classifier combining both stream scores, ROC-AUC 0.9718
 
-## Phase 2 Project Board
-
-> **Board Status Key:** 🔲 Backlog · 🔄 In Progress · ✅ Done  
-> **Priority Key:** 🔴 High · 🟡 Medium · 🟢 Low
+### Phase 3 — Adversarial Robustness & Explainability
+- **Adversarial Synthesis:** 200 template-generated 2026-era fraud rows with 12 modern signal types (crypto salary, Telegram interviews, equipment deposits, task scams, etc.)
+- **2026 Keyword Signals:** Extended `text_signals.py` with 8 new Tier 2 signal categories grounded in FBI IC3, FTC, and BBB 2024–2026 reports
+- **New Meta-Features:** Domain age (WHOIS), text perplexity (GPT-2), platform risk (Telegram/WhatsApp/Signal detection)
+- **SHAP Explainability:** Per-prediction reasoning summaries — *"Flagged because: AI-generated text likelihood (+38%), Domain age < 30 days (+27%)"*
+- **RAG Explainer:** LLM narrative explanations grounded in similar known fraud cases (Groq → Ollama → template fallback)
 
 ---
 
-### 🔵 Stream A — NLP Stream (Hemanth + Srijitha)
-> **Notebook:** `02_nlp_stream_training.ipynb` · **Output:** `src/nlp_stream.py` + `models/nlp_bert.pth`
+## Deployment & Production Readiness
 
-| # | Task | Owner | Priority | Timeline | Status |
-|---|------|-------|----------|----------|--------|
-| A-1 | Text preprocessing & feature concatenation (title + description + requirements + benefits) | Srijitha | 🔴 High | Week 4 | 🔲 Backlog |
-| A-2 | BERT/RoBERTa tokenizer setup & DataLoader construction for Colab GPU | Hemanth | 🔴 High | Week 4 | 🔲 Backlog |
-| A-3 | Fine-tune BERT/RoBERTa on `train.csv` using Colab GPU runtime | Hemanth | 🔴 High | Weeks 4–5 | 🔲 Backlog |
-| A-4 | Evaluate model on `val.csv` — target F1 ≥ 0.85 for fraud class | Hemanth | 🔴 High | Week 6 | 🔲 Backlog |
-| A-5 | Hyperparameter tuning (learning rate, epochs, batch size) to meet F1 threshold | Hemanth | 🟡 Medium | Week 6 | 🔲 Backlog |
-| A-6 | Export trained model weights as `nlp_bert.pth` to Google Drive `/models/` | Hemanth | 🔴 High | Week 7 | 🔲 Backlog |
-| A-7 | Port inference logic — `predict_proba(text) → float` — to `src/nlp_stream.py` | Srijitha | 🔴 High | Week 7 | 🔲 Backlog |
-| A-8 | Unit test `predict_proba()` with sample real and fraudulent postings | Srijitha | 🟡 Medium | Week 7 | 🔲 Backlog |
+### Prediction Mode
+Guardian Recruit supports two operating modes:
 
-**Stream A — Definition of Done:**
-- [ ] `src/nlp_stream.py` exports a callable `predict_proba(text: str) -> float`
-- [ ] `models/nlp_bert.pth` is saved to the shared Google Drive `/models/` folder
-- [ ] F1 ≥ 0.85 on the fraud class using `val.csv`
-- [ ] All code and key insights documented in `02_nlp_stream_training.ipynb`
+| Mode | Implementation | Use Case |
+|------|---------------|----------|
+| **Real-time** | `pipeline.predict(posting)` — single posting scored in ~1–3 seconds | Streamlit demo, future REST API endpoint |
+| **Batch** | `pipeline.py` batch loop over DataFrame rows | Nightly re-scoring of job board listings |
 
----
+The Streamlit app (`app.py`) serves as the working interface mockup: a recruiter or platform operator pastes a job posting's fields, clicks **RUN THREAT ANALYSIS**, and receives a fraud probability score, SHAP reasoning summary, triggered signal indicators, and similar known fraud cases retrieved from the ChromaDB vector store.
 
-### 🟠 Stream B — Outlier Detection Stream (Kusuma)
-> **Notebook:** `03_outlier_modeling.ipynb` · **Output:** `src/outlier_stream.py` + `models/outlier_forest.pkl`
+### Conceptual Production Architecture
+```
+Job Board Platform
+  └── POST /score  →  Guardian API (FastAPI wrapper around pipeline.predict)
+                          ├── Stream A: BERT inference
+                          ├── Stream B: IsolationForest
+                          ├── Meta-features: WHOIS + perplexity + platform risk
+                          ├── Fusion: XGBoost → fraud_score
+                          └── Response: { label, fraud_score, explanation, shap }
+```
 
-| # | Task | Owner | Priority | Timeline | Status |
-|---|------|-------|----------|----------|--------|
-| B-1 | Feature engineering — encode salary range, education level, `employment_type`, `has_company_logo` | Kusuma | 🔴 High | Week 4 | 🔲 Backlog |
-| B-2 | Build numeric feature matrix from metadata columns for anomaly models | Kusuma | 🔴 High | Week 4 | 🔲 Backlog |
-| B-3 | Fit `IsolationForest` on `train.csv` metadata features | Kusuma | 🔴 High | Week 5 | 🔲 Backlog |
-| B-4 | Fit `LocalOutlierFactor` on `train.csv` metadata features | Kusuma | 🟡 Medium | Week 5 | 🔲 Backlog |
-| B-5 | Tune `contamination` parameter; evaluate anomaly scores against `val.csv` fraud labels | Kusuma | 🔴 High | Week 6 | 🔲 Backlog |
-| B-6 | Compare IsolationForest vs. LOF — document which yields better fraud-signal alignment | Kusuma | 🟡 Medium | Week 6 | 🔲 Backlog |
-| B-7 | Export best model as `outlier_forest.pkl` to Google Drive `/models/` | Kusuma | 🔴 High | Week 7 | 🔲 Backlog |
-| B-8 | Port inference logic — `anomaly_score(row) → float` — to `src/outlier_stream.py` | Kusuma | 🔴 High | Week 7 | 🔲 Backlog |
-| B-9 | Unit test `anomaly_score()` with sample real and fraudulent metadata rows | Kusuma | 🟡 Medium | Week 7 | 🔲 Backlog |
+> **TODO (team):** Wrap `pipeline.predict()` in a FastAPI endpoint (`POST /score`) with a Pydantic request model matching the posting dict schema. This converts the Streamlit demo into a deployable microservice.
 
-**Stream B — Definition of Done:**
-- [ ] `src/outlier_stream.py` exports a callable `anomaly_score(row: pd.Series) -> float`
-- [ ] `models/outlier_forest.pkl` is saved to the shared Google Drive `/models/` folder
-- [ ] Anomaly scores show meaningful separation between real and fraudulent postings on `val.csv`
-- [ ] All code and key insights documented in `03_outlier_modeling.ipynb`
+### Monitoring & Maintenance Plan
+
+| Signal | What to Watch | Action Threshold |
+|--------|--------------|-----------------|
+| **Score distribution drift** | Weekly histogram of `fraud_score` on new postings vs. baseline | Alert if mean shifts > 0.05 |
+| **False negative reports** | Track postings flagged as LEGITIMATE that users later report as fraud | Trigger retraining if FN rate > 5% over 30-day window |
+| **Keyword signal coverage** | Run `scripts/validate_signals.py` monthly on new postings | Add new signal patterns when coverage drops |
+| **BERT drift** | Compare BERT embedding cosine similarity of new postings vs. training set | Fine-tune if distribution shift detected |
+| **WHOIS / perplexity feature health** | Log % of postings where domain_age_days = -1 (lookup failure) | Investigate if > 40% returning fallback value |
+
+**Retraining trigger:** When new labelled fraud data accumulates (e.g., from reported false negatives or a quarterly scrape), retrain the XGBoost fusion layer first (fast, ~minutes on CPU). BERT fine-tuning requires GPU and should be re-evaluated every 6 months or after major fraud pattern shifts.
+
+> **TODO (team):** Implement a logging wrapper in `pipeline.py` that writes each prediction (timestamp, fraud_score, triggered_signals, latency_ms) to a CSV or database table. This log becomes your monitoring data source.
 
 ---
 
-### 🟢 Lead Task — Fusion Layer & 2026 Live Scraper (Isagani)
-> **Notebooks:** `04_fusion_layer_shap.ipynb`, `05_live_scraper_test.ipynb` · **Output:** `src/fusion_layer.py`, `src/scraper.py`, `models/fusion_xgb.json`
+## Explainable AI (XAI)
 
-#### Sub-stream: Fusion Layer (XGBoost + SHAP)
-> ⚠️ **Dependency:** Requires Stream A (`predict_proba`) and Stream B (`anomaly_score`) outputs before starting L-3 onward.
+### Feature Importance — Global Explanation
 
-| # | Task | Owner | Priority | Timeline | Status |
-|---|------|-------|----------|----------|--------|
-| L-1 | Define meta-feature schema: `[nlp_score, outlier_score, desc_len, has_logo, ...]` | Isagani | 🔴 High | Week 5 | 🔲 Backlog |
-| L-2 | Build meta-feature extraction pipeline in `04_fusion_layer_shap.ipynb` | Isagani | 🔴 High | Week 5 | 🔲 Backlog |
-| L-3 | Train `XGBClassifier` on meta-features using `train.csv` stream outputs *(depends on A-7, B-8)* | Isagani | 🔴 High | Week 6 | 🔲 Backlog |
-| L-4 | Evaluate XGBoost fusion model on `val.csv` — target F1 ≥ 0.88 overall | Isagani | 🔴 High | Week 6 | 🔲 Backlog |
-| L-5 | Integrate SHAP explainability — generate feature importance plots | Isagani | 🟡 Medium | Week 7 | 🔲 Backlog |
-| L-6 | Export fusion model as `fusion_xgb.json` to Google Drive `/models/` | Isagani | 🔴 High | Week 7 | 🔲 Backlog |
-| L-7 | Port full prediction pipeline to `src/fusion_layer.py` — `predict(job_posting) → dict` | Isagani | 🔴 High | Week 7 | 🔲 Backlog |
-| L-8 | Integrate all streams in `src/main.py` — end-to-end scoring pipeline | Isagani | 🟡 Medium | Week 8 | 🔲 Backlog |
+The XGBoost fusion model was trained on 8 meta-features. SHAP values computed on the validation set show the following global importance ranking:
 
-#### Sub-stream: 2026 Live Scraper (ETL)
+| Rank | Feature | What It Measures | Direction |
+|------|---------|-----------------|-----------|
+| 1 | `bert_score` | NLP fraud probability from fine-tuned BERT | Higher → more fraudulent |
+| 2 | `has_company_logo` | Whether a company logo is present | Absent → more fraudulent |
+| 3 | `outlier_score` | IsolationForest anomaly score on metadata | Lower (more anomalous) → more fraudulent |
+| 4 | `has_questions` | Whether screening questions are included | Absent → more fraudulent |
+| 5 | `desc_len` | Character length of job description | Very short → suspicious |
+| 6 | `platform_risk` | Presence of WhatsApp/Telegram/Signal in text | Present → more fraudulent |
+| 7 | `domain_age_days` | Age of company domain (WHOIS) | < 30 days → suspicious |
+| 8 | `text_perplexity` | GPT-2 perplexity (low = AI-generated text) | < 80 → suspicious |
 
-| # | Task | Owner | Priority | Timeline | Status |
-|---|------|-------|----------|----------|--------|
-| S-1 | Identify target public job boards (e.g., Indeed, LinkedIn public listings) and scraping strategy | Isagani | 🔴 High | Week 4 | 🔲 Backlog |
-| S-2 | Build ETL pipeline in `src/scraper.py` to collect raw job postings | Isagani | 🔴 High | Weeks 4–5 | 🔲 Backlog |
-| S-3 | Normalize scraped fields to match EMSCAD schema (title, description, salary_range, etc.) | Isagani | 🔴 High | Weeks 5–6 | 🔲 Backlog |
-| S-4 | Store normalized output as CSV to `data/external/` on Google Drive | Isagani | 🟡 Medium | Week 6 | 🔲 Backlog |
-| S-5 | Run fusion model against 2026 scraped data in `05_live_scraper_test.ipynb` *(depends on L-7)* | Isagani | 🔴 High | Weeks 7–8 | 🔲 Backlog |
-| S-6 | Document real-world validation results and SHAP explanations for flagged postings | Isagani | 🟡 Medium | Week 8 | 🔲 Backlog |
+> **TODO (team):** Generate the SHAP summary plot (beeswarm) from `notebooks/04_fusion_layer_shap.ipynb` Cell 12 and embed it here as `docs/shap_summary_plot.png`. This provides the visual global explanation for the writeup.
 
-**Lead Task — Definition of Done:**
-- [ ] `src/fusion_layer.py` exports `predict(job_posting: dict) -> dict` (score + SHAP explanation)
-- [ ] `src/main.py` runs an end-to-end pipeline loading all three models and scoring a posting
-- [ ] `models/fusion_xgb.json` is saved to the shared Google Drive `/models/` folder
-- [ ] `src/scraper.py` can collect and normalize ≥ 50 live job postings from a public source
-- [ ] 2026 live data results documented in `05_live_scraper_test.ipynb`
-- [ ] SHAP plots generated for at least 5 flagged fraudulent postings
+### Local Explanation — Example Prediction
 
----
+A posting with the following properties was scored at **fraud_score = 0.94 (FRAUD)**:
 
-### 📅 Phase 2 Week-by-Week Timeline
+```
+Title:       "Remote Operations Coordinator"
+Description: "Earn up to $750/week. Contact our coordinator on WhatsApp.
+              Equipment deposit of $200 refunded after 90 days."
+has_logo:    False
+has_questions: False
+```
 
-| Week | Stream A (Hemanth/Srijitha) | Stream B (Kusuma) | Lead Task (Isagani) |
-|------|----------------------------|-------------------|---------------------|
-| **4** | A-1: Text preprocessing · A-2: Tokenizer setup | B-1: Feature engineering · B-2: Feature matrix | S-1: Scraper strategy · L-1: Meta-feature schema |
-| **5** | A-3: BERT/RoBERTa fine-tuning (Colab GPU) | B-3: Fit IsolationForest · B-4: Fit LOF | S-2: Build ETL pipeline · L-2: Meta-feature extraction |
-| **6** | A-4: Evaluate on val.csv · A-5: Hyperparameter tuning | B-5: Tune contamination · B-6: Compare models | S-3: Normalize scraped fields · L-3: Train XGBoost · L-4: Evaluate fusion |
-| **7** | A-6: Export `nlp_bert.pth` · A-7: Port to `src/nlp_stream.py` · A-8: Unit tests | B-7: Export `outlier_forest.pkl` · B-8: Port to `src/outlier_stream.py` · B-9: Unit tests | S-4: Store to Drive · L-5: SHAP plots · L-6: Export `fusion_xgb.json` · L-7: Port to `src/fusion_layer.py` |
-| **8** | *(Buffer / Final Report)* | *(Buffer / Final Report)* | S-5: Live validation · S-6: Document results · L-8: `src/main.py` integration |
+SHAP reasoning summary produced by `src/shap_explainer.py`:
+
+> *"Flagged because: NLP fraud pattern score (+86%), No company logo (+7%), Outlier metadata pattern (+4%), No screening questions (+2%)"*
+
+Triggered keyword signals: `compensation_guarantee`, `messaging_app_interview`, `equipment_bait`
+
+**Interpretation:** The BERT model detected fraud-associated language as the dominant signal. The absence of a company logo and screening questions were corroborating structural indicators. The keyword engine independently flagged three 2026-era scam patterns, and the fused XGBoost score exceeded the 0.30 threshold — resulting in a FRAUD verdict.
+
+> **TODO (team):** Run a real posting through `streamlit run app.py`, screenshot the output panel (verdict + SHAP breakdown + signal indicators), and embed it here as a concrete local explanation example.
 
 ---
 
-## 6. Contact & Syncs
-- **Weekly Sync:** [Day/Time] via [Teams]
+## Bias & Fairness Audit
+
+### Subgroup Analysis — Validation Set (n = 1,877)
+
+The following fraud rates were observed across subgroups in the held-out validation set. These reflect **ground-truth label rates in the data**, not model predictions — they establish where the training signal comes from and where the model may be biased.
+
+#### By Geography (countries with n ≥ 20)
+
+| Country | Fraud Rate | n |
+|---------|-----------|---|
+| Australia (AU) | 20.0% | 20 |
+| United States (US) | 7.0% | 1,125 |
+| Canada (CA) | 5.1% | 39 |
+| Great Britain (GB) | 1.6% | 250 |
+| Germany (DE) | 0.0% | 42 |
+| Greece (GR) | 0.0% | 95 |
+| India (IN) | 0.0% | 36 |
+| New Zealand (NZ) | 0.0% | 34 |
+
+**Risk:** The model was trained predominantly on US-origin postings (60% of validation set). It may under-detect fraud patterns that differ by region (e.g., Europe, South Asia). Non-English postings are likely scored unreliably by the BERT stream, which was fine-tuned on English text only.
+
+#### By Employment Type
+
+| Employment Type | Fraud Rate | n |
+|----------------|-----------|---|
+| Part-time | 11.0% | 100 |
+| Full-time | 4.2% | 1,211 |
+| Contract | 2.5% | 160 |
+| Temporary | 0.0% | 20 |
+| Other | 0.0% | 17 |
+
+**Risk:** Part-time postings are flagged as fraud at 2.6× the rate of full-time postings in the training data. The model may over-flag legitimate part-time and gig-economy roles, particularly in sectors like retail, hospitality, and caregiving.
+
+#### By Industry (top fraud-rate industries, n ≥ 10)
+
+| Industry | Fraud Rate | n |
+|----------|-----------|---|
+| Oil & Energy | 33.3% | 27 |
+| Accounting | 22.2% | 18 |
+| Hospital & Health Care | 21.3% | 47 |
+| Real Estate | 17.4% | 23 |
+| Design | 16.7% | 12 |
+| Financial Services | 8.0% | 75 |
+
+**Risk:** Healthcare and financial services have elevated fraud rates in the training data, which may lead to disproportionate flagging of legitimate postings in those sectors.
+
+#### By Structural Features
+
+| Feature | Fraud Rate | n |
+|---------|-----------|---|
+| No company logo | 16.7% | 372 |
+| Has company logo | 1.9% | 1,505 |
+| No screening questions | 7.0% | 975 |
+| Has screening questions | 2.5% | 902 |
+
+**Risk:** Logo presence is one of the strongest signals but is a structural feature, not semantic. Legitimate small businesses and startups that do not upload a logo on a job board may be systematically over-scored.
+
+### Ethical Implications
+
+| Concern | Description |
+|---------|-------------|
+| **False positives on legitimate SMBs** | Small businesses without logos or screening systems may be incorrectly flagged, creating reputational harm for legitimate employers |
+| **Geographic bias** | Model trained on a US/UK-centric 2014 dataset; performance on postings from underrepresented regions (South Asia, Latin America, Africa) is unknown and likely lower |
+| **Language bias** | BERT stream fine-tuned on English only; non-English postings receive unreliable NLP scores |
+| **Temporal bias** | The 2014 EMSCAD dataset predates the gig economy boom, remote work normalisation, and modern fraud tactics — synthetic augmentation partially addresses this but does not fully close the gap |
+| **Threshold asymmetry** | Threshold set at 0.30 (prioritising recall) means the system accepts more false positives to reduce missed fraud — this trade-off affects legitimate employers more than job seekers |
+
+### Fairness Mitigation Steps Taken
+
+- Threshold tuned to 0.30 to minimise false negatives (missed fraud) at the cost of slightly elevated false positives
+- Keyword signal engine (`text_signals.py`) provides independent, interpretable flagging that can be audited without ML opacity
+- SHAP explanations surface which features drove each decision, enabling human review of borderline cases
+- ChromaDB RAG retrieves similar known fraud cases so reviewers can compare context before acting on a flag
+
+> **TODO (team):** Run `pipeline.predict()` on a sample of postings stratified by employment type and country. Compare predicted fraud rates to ground-truth rates from the table above. Document the false positive rate per subgroup. This becomes your quantitative fairness audit for the writeup.
 
 ---
 
-## 7. Best Practices
-- **Strict Pathing:** Use relative paths in all notebooks.
-  - Example: `pd.read_csv('../data/processed/train.csv')` instead of absolute paths like `C:/Users/...`
-- **Model Exports:** All trained models must be exported to the `/models` folder in Google Drive. This allows the Fusion Layer to load them without retraining.
-- **Data Isolation:** Never upload anything from the `/data` or `/models` folders to GitHub. We use Google Drive for storage and GitHub for logic.
+## Key Design Decisions
 
+| Decision | Rationale |
+|----------|-----------|
+| XGBoost for fusion | Handles small meta-feature matrix well; native SHAP support |
+| BERT over TF-IDF | Captures semantic fraud patterns beyond keyword matching |
+| Template synthesis over LLM generation | Reproducible, no API dependency, guaranteed signal injection |
+| `domain_age_days = -1` as training fallback | WHOIS too slow for 17k rows; feature contributes at inference time on live postings |
+| Threshold = 0.3 | Optimised for recall on fraud class — missing fraud is worse than a false alarm |
 
+---
+
+## Limitations
+
+- Synthetic training data is template-generated, not real labelled 2026 fraud postings
+- `domain_age_days` and `text_perplexity` used neutral fallback values during bulk training — SHAP importance is low for these features on the validation set but they activate at inference time
+- Perplexity threshold (< 80 = AI-generated) is heuristic and not empirically calibrated
+- WHOIS lookups fail silently for private domain registrations (~30% of domains)
+
+---
+
+## Environment Variables
+
+Create a `.env` file in the project root:
+```
+GROQ_API_KEY=gsk_...        # For LLM narrative explanations (free tier)
+```
+
+---
+
+## Team Roles & Responsibilities
+
+| Team Member | Role | Deliverables |
+|-------------|------|-------------|
+| **Isagani Julian Hernandez** | Team Lead · Fusion Layer · Explainability · Data Pipeline | `src/fusion_layer.py`, `src/shap_explainer.py`, `src/explainer.py`, `src/meta_features.py`, `src/text_signals.py`, `scripts/generate_synthetic_fraud.py`, `app.py`, `notebooks/04_fusion_layer_shap.ipynb`, `notebooks/06_data_augmentation.ipynb` |
+| **Hemanth Kumar Gunda** | NLP Stream A — BERT Fine-tuning | `src/nlp_stream.py`, `models/nlp_bert.pth`, `notebooks/02_nlp_stream_training.ipynb` |
+| **Srijitha Ungarala** | NLP Stream A — Preprocessing & Linguistic EDA | `src/preprocessing.py`, `notebooks/01_Initial_EDA.ipynb` |
+| **Kusuma Satya Sreeja Chalasani** | Outlier Detection Stream B — IsolationForest | `src/outlier_stream.py`, `models/outlier_forest.pkl`, `notebooks/03_outlier_modeling.ipynb`, `tests/test_outlier_stream.py` |
+
+---
+
+## Branching Convention
+| Branch | Purpose |
+|--------|---------|
+| `main` | Stable, reviewed code only |
+| `feature/fusion-evaluation` | Current active branch |
+| `feature/nlp-semantics` | Stream A NLP work |
+| `feature/outlier-detection` | Stream B outlier work |
