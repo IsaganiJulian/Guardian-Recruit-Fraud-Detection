@@ -57,3 +57,7 @@ models/*.json
 # OS
 .DS_Store
 Thumbs.db
+
+# ChromaDB
+data/chroma_db/
+src/data/chroma_db/

@@ -21,13 +21,13 @@ import pandas as pd
 # Ensure src/ is on path when called from repo root
 sys.path.insert(0, os.path.dirname(__file__))
 
-from preprocessing import GuardianCleaner
-import nlp_stream
-import outlier_stream
-import fusion_layer
-from vector_store import get_collection, search_similar, collection_size
-from explainer import explain
-from text_signals import compute_keyword_score
+from streams.nlp.preprocessing import GuardianCleaner
+from streams.nlp import nlp_stream
+from streams.outlier import outlier_stream
+from streams.fusion import fusion_layer
+from explainability.vector_store import get_collection, search_similar, collection_size
+from explainability.explainer import explain
+from streams.nlp.text_signals import compute_keyword_score
 
 
 class FraudDetectionPipeline:
@@ -111,6 +111,11 @@ class FraudDetectionPipeline:
 
         # 3. Keyword signal score — catches modern fraud BERT misses
         keyword_score, triggered_signals = compute_keyword_score(posting_text)
+
+        # Pass keyword_score into row so fusion_layer can use it as bert_score
+        # fallback when BERT weights are absent (lite deployment mode).
+        row = row.copy()
+        row['_keyword_score'] = keyword_score
 
         # 4. Score through fusion layer (Stream A + Stream B + XGBoost)
         score_result = fusion_layer.predict(row)

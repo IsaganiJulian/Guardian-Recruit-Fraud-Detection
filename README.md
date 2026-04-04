@@ -1,3 +1,14 @@
+---
+title: Guardian Recruit
+emoji: 🛡️
+colorFrom: green
+colorTo: red
+sdk: streamlit
+sdk_version: 1.30.0
+app_file: app.py
+pinned: false
+---
+
 # Guardian Recruit — Fraud Detection System
 
 **University of North Texas | DTSC 5082 Capstone**
@@ -215,7 +226,9 @@ The XGBoost fusion model was trained on 8 meta-features. SHAP values computed on
 | 7 | `domain_age_days` | Age of company domain (WHOIS) | < 30 days → suspicious |
 | 8 | `text_perplexity` | GPT-2 perplexity (low = AI-generated text) | < 80 → suspicious |
 
-> **TODO (team):** Generate the SHAP summary plot (beeswarm) from `notebooks/04_fusion_layer_shap.ipynb` Cell 12 and embed it here as `docs/shap_summary_plot.png`. This provides the visual global explanation for the writeup.
+![SHAP Beeswarm — Global Feature Importance](docs/shap_beeswarm.png)
+
+*Each dot is one of 500 validation postings. Horizontal position = SHAP value (impact on fraud probability). Colour = feature value (red = high, blue = low). Features ranked top-to-bottom by mean absolute SHAP.*
 
 ### Local Explanation — Example Prediction
 

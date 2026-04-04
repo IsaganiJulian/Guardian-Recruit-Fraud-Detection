@@ -8,6 +8,7 @@ Run with:
 
 import sys
 import os
+import datetime
 import pandas as pd
 import matplotlib.pyplot as plt
 import matplotlib.patches as mpatches
@@ -15,7 +16,45 @@ import streamlit as st
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), 'src'))
 
+# Download models and data automatically on cold start (HF Spaces / fresh clone)
+from startup import ensure_assets
+ensure_assets()
+
 from pipeline import pipeline
+
+# ── Training queue helpers ────────────────────────────────────────────────────
+REPO_ROOT      = os.path.dirname(__file__)
+QUEUE_PATH     = os.path.join(REPO_ROOT, 'data', 'feedback', 'training_queue.csv')
+QUEUE_COLUMNS  = [
+    'timestamp', 'title', 'description', 'requirements', 'company_profile',
+    'employment_type', 'salary_range', 'has_company_logo', 'has_questions',
+    'fraud_score', 'model_label', 'human_label',
+]
+
+def _load_queue() -> pd.DataFrame:
+    if os.path.exists(QUEUE_PATH):
+        return pd.read_csv(QUEUE_PATH)
+    return pd.DataFrame(columns=QUEUE_COLUMNS)
+
+def save_to_training_queue(posting: dict, result: dict) -> None:
+    os.makedirs(os.path.dirname(QUEUE_PATH), exist_ok=True)
+    df = _load_queue()
+    row = {
+        'timestamp':        datetime.datetime.utcnow().isoformat(timespec='seconds'),
+        'title':            posting.get('title', ''),
+        'description':      posting.get('description', ''),
+        'requirements':     posting.get('requirements', ''),
+        'company_profile':  posting.get('company_profile', ''),
+        'employment_type':  posting.get('employment_type', ''),
+        'salary_range':     posting.get('salary_range', ''),
+        'has_company_logo': posting.get('has_company_logo', 0),
+        'has_questions':    posting.get('has_questions', 0),
+        'fraud_score':      round(result['fraud_score'], 4),
+        'model_label':      result['label'],
+        'human_label':      result['label'],   # reviewer can override later
+    }
+    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
+    df.to_csv(QUEUE_PATH, index=False)
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(
@@ -158,6 +197,32 @@ with st.sidebar:
         unsafe_allow_html=True
     )
 
+    st.divider()
+    st.markdown("### [ GLOBAL FEATURE IMPORTANCE ]")
+    _beeswarm = os.path.join(REPO_ROOT, 'docs', 'shap_beeswarm.png')
+    if os.path.exists(_beeswarm):
+        st.image(_beeswarm, use_container_width=True)
+        st.caption('SHAP beeswarm — 500 validation postings')
+
+    st.divider()
+    st.markdown("### [ TRAINING QUEUE ]")
+    queue_df = _load_queue()
+    n_queue  = len(queue_df)
+    st.markdown(
+        f"<span style='font-family:Courier New;font-size:0.8rem;color:#00ff9d;'>"
+        f"{n_queue} posting(s) saved for retraining</span>",
+        unsafe_allow_html=True
+    )
+    if n_queue > 0:
+        csv_bytes = queue_df.to_csv(index=False).encode()
+        st.download_button(
+            label='⬇ Download training_queue.csv',
+            data=csv_bytes,
+            file_name='training_queue.csv',
+            mime='text/csv',
+            use_container_width=True,
+        )
+
 # ── Input form ────────────────────────────────────────────────────────────────
 st.markdown("### [ SUBMIT TARGET FOR ANALYSIS ]")
 
@@ -186,6 +251,11 @@ with st.form('job_form'):
         use_container_width=True
     )
 
+# ── Session state init ────────────────────────────────────────────────────────
+if 'result'  not in st.session_state: st.session_state['result']  = None
+if 'posting' not in st.session_state: st.session_state['posting'] = None
+if 'saved'   not in st.session_state: st.session_state['saved']   = False
+
 # ── Run pipeline ──────────────────────────────────────────────────────────────
 if submitted:
     if not title and not description:
@@ -206,6 +276,14 @@ if submitted:
     with st.spinner('[ RUNNING THREAT ANALYSIS... ]'):
         result = pipeline.predict(posting)
 
+    st.session_state['result']  = result
+    st.session_state['posting'] = posting
+    st.session_state['saved']   = False
+
+# ── Render results from session state ─────────────────────────────────────────
+if st.session_state['result'] is not None:
+    result      = st.session_state['result']
+    posting     = st.session_state['posting']
     fraud_score = result['fraud_score']
     is_fraud    = result['label'] == 'FRAUD'
 
@@ -360,3 +438,36 @@ if submitted:
     with st.expander('[ RAW PIPELINE OUTPUT ]'):
         display = {k: v for k, v in result.items() if k != 'similar_cases'}
         st.json(display)
+
+    # ── Actions ───────────────────────────────────────────────────────────────
+    st.divider()
+    st.markdown("### [ ACTIONS ]")
+    st.markdown(
+        "<div style='background:#0d1117;border:1px solid #00ff9d33;border-radius:6px;"
+        "padding:12px 16px;font-family:Courier New,monospace;font-size:0.82rem;color:#8b949e;"
+        "margin-bottom:12px;'>"
+        "💡 <span style='color:#c9d1d9;'>Help us improve Guardian Recruit!</span> "
+        "Save this job listing to our training queue — whether it's fraud or legitimate, "
+        "every submission helps the model get smarter over time. Thank you!"
+        "</div>",
+        unsafe_allow_html=True
+    )
+    act1, act2 = st.columns(2)
+
+    with act1:
+        if st.session_state['saved']:
+            st.success('✓ Saved — thank you for helping improve Guardian Recruit!')
+        else:
+            if st.button('💾  Save Listing to Help Improve the App', use_container_width=True,
+                         help='Adds this posting to the retraining queue for future model improvement.'):
+                save_to_training_queue(posting, result)
+                st.session_state['saved'] = True
+                st.rerun()
+
+    with act2:
+        if st.button('✕  Clear Results', use_container_width=True,
+                     help='Clears the current result. The form also clears on page refresh.'):
+            st.session_state['result']  = None
+            st.session_state['posting'] = None
+            st.session_state['saved']   = False
+            st.rerun()
