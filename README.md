@@ -16,7 +16,7 @@ pinned: false
 **University of North Texas | DTSC 5082 Capstone**
 
 **Team:**
-- Isagani Julian Hernandez — Fusion Layer, SHAP Explainability, Data Pipeline
+- Isagani Julian Hernandez — Team Lead, System Architecture, Fusion Layer, SHAP Explainability, Data Pipeline, Model Deployment
 - Hemanth Kumar Gunda — NLP Stream (BERT)
 - Srijitha Ungarala — NLP Stream (Preprocessing & Linguistic EDA)
 - Kusuma Satya Sreeja Chalasani — Outlier Detection Stream (IsolationForest)
@@ -368,7 +368,7 @@ GROQ_API_KEY=gsk_...        # For LLM narrative explanations (free tier)
 
 | Team Member | Role | Deliverables |
 |-------------|------|-------------|
-| **Isagani Julian Hernandez** | Team Lead · Fusion Layer · Explainability · Data Pipeline | `src/fusion_layer.py`, `src/shap_explainer.py`, `src/explainer.py`, `src/meta_features.py`, `src/text_signals.py`, `scripts/generate_synthetic_fraud.py`, `app.py`, `notebooks/04_fusion_layer_shap.ipynb`, `notebooks/06_data_augmentation.ipynb` |
+| **Isagani Julian Hernandez** | Team Lead · System Architecture · Fusion Layer · Explainability · Data Pipeline · Model Deployment | `src/fusion_layer.py`, `src/shap_explainer.py`, `src/explainer.py`, `src/meta_features.py`, `src/text_signals.py`, `scripts/generate_synthetic_fraud.py`, `app.py`, `notebooks/04_fusion_layer_shap.ipynb`, `notebooks/06_data_augmentation.ipynb` |
 | **Hemanth Kumar Gunda** | NLP Stream A — BERT Fine-tuning | `src/nlp_stream.py`, `models/nlp_bert.pth`, `notebooks/02_nlp_stream_training.ipynb` |
 | **Srijitha Ungarala** | NLP Stream A — Preprocessing & Linguistic EDA | `src/preprocessing.py`, `notebooks/01_Initial_EDA.ipynb` |
 | **Kusuma Satya Sreeja Chalasani** | Outlier Detection Stream B — IsolationForest | `src/outlier_stream.py`, `models/outlier_forest.pkl`, `notebooks/03_outlier_phase3.ipynb`, `tests/test_outlier_stream.py` |
