@@ -11,6 +11,8 @@ pinned: false
 
 # Guardian Recruit — Fraud Detection System
 
+[![Live Demo](https://img.shields.io/badge/🤗%20HF%20Spaces-Live%20Demo-blue)](https://huggingface.co/spaces/ijih14/guardian-recruit)
+
 **University of North Texas | DTSC 5082 Capstone**
 
 **Team:**
