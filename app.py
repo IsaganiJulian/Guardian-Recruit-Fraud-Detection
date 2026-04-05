@@ -22,39 +22,69 @@ ensure_assets()
 
 from pipeline import pipeline
 
-# ── Training queue helpers ────────────────────────────────────────────────────
-REPO_ROOT      = os.path.dirname(__file__)
-QUEUE_PATH     = os.path.join(REPO_ROOT, 'data', 'feedback', 'training_queue.csv')
-QUEUE_COLUMNS  = [
-    'timestamp', 'title', 'description', 'requirements', 'company_profile',
-    'employment_type', 'salary_range', 'has_company_logo', 'has_questions',
-    'fraud_score', 'model_label', 'human_label',
-]
+# ── Training queue helpers (SQLite) ──────────────────────────────────────────
+import sqlite3
+
+REPO_ROOT  = os.path.dirname(__file__)
+DB_DIR     = os.path.join(REPO_ROOT, 'data', 'feedback')
+QUEUE_DB   = os.path.join(DB_DIR, 'training_queue.db')
+
+def _get_conn():
+    os.makedirs(DB_DIR, exist_ok=True)
+    conn = sqlite3.connect(QUEUE_DB, check_same_thread=False)
+    conn.execute("""
+        CREATE TABLE IF NOT EXISTS training_queue (
+            id            INTEGER PRIMARY KEY AUTOINCREMENT,
+            timestamp     TEXT,
+            title         TEXT,
+            description   TEXT,
+            requirements  TEXT,
+            company_profile TEXT,
+            employment_type TEXT,
+            salary_range  TEXT,
+            has_company_logo INTEGER,
+            has_questions INTEGER,
+            fraud_score   REAL,
+            model_label   TEXT,
+            human_label   TEXT
+        )
+    """)
+    conn.commit()
+    return conn
 
 def _load_queue() -> pd.DataFrame:
-    if os.path.exists(QUEUE_PATH):
-        return pd.read_csv(QUEUE_PATH)
-    return pd.DataFrame(columns=QUEUE_COLUMNS)
+    try:
+        conn = _get_conn()
+        df   = pd.read_sql_query("SELECT * FROM training_queue ORDER BY id DESC", conn)
+        conn.close()
+        return df
+    except Exception:
+        return pd.DataFrame()
 
 def save_to_training_queue(posting: dict, result: dict) -> None:
-    os.makedirs(os.path.dirname(QUEUE_PATH), exist_ok=True)
-    df = _load_queue()
-    row = {
-        'timestamp':        datetime.datetime.utcnow().isoformat(timespec='seconds'),
-        'title':            posting.get('title', ''),
-        'description':      posting.get('description', ''),
-        'requirements':     posting.get('requirements', ''),
-        'company_profile':  posting.get('company_profile', ''),
-        'employment_type':  posting.get('employment_type', ''),
-        'salary_range':     posting.get('salary_range', ''),
-        'has_company_logo': posting.get('has_company_logo', 0),
-        'has_questions':    posting.get('has_questions', 0),
-        'fraud_score':      round(result['fraud_score'], 4),
-        'model_label':      result['label'],
-        'human_label':      result['label'],   # reviewer can override later
-    }
-    df = pd.concat([df, pd.DataFrame([row])], ignore_index=True)
-    df.to_csv(QUEUE_PATH, index=False)
+    conn = _get_conn()
+    conn.execute("""
+        INSERT INTO training_queue
+        (timestamp, title, description, requirements, company_profile,
+         employment_type, salary_range, has_company_logo, has_questions,
+         fraud_score, model_label, human_label)
+        VALUES (?,?,?,?,?,?,?,?,?,?,?,?)
+    """, (
+        datetime.datetime.utcnow().isoformat(timespec='seconds'),
+        posting.get('title', ''),
+        posting.get('description', ''),
+        posting.get('requirements', ''),
+        posting.get('company_profile', ''),
+        posting.get('employment_type', ''),
+        posting.get('salary_range', ''),
+        int(posting.get('has_company_logo', 0)),
+        int(posting.get('has_questions', 0)),
+        round(result['fraud_score'], 4),
+        result['label'],
+        result['label'],
+    ))
+    conn.commit()
+    conn.close()
 
 # ── Page config ───────────────────────────────────────────────────────────────
 st.set_page_config(

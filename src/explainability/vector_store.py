@@ -76,22 +76,16 @@ def _build_index(client: chromadb.PersistentClient) -> chromadb.Collection:
 
 
 def get_collection() -> chromadb.Collection:
-    """Return the fraud postings collection, building it on first call."""
+    """Return the fraud postings collection, building it on first call.
+    Uses in-memory ChromaDB so it works on HF Spaces without persistent storage."""
     global _collection
     if _collection is not None:
         return _collection
 
-    os.makedirs(DB_PATH, exist_ok=True)
-    client   = chromadb.PersistentClient(path=DB_PATH)
-    existing = [c.name for c in client.list_collections()]
-
-    if COLLECTION_NAME in existing:
-        _collection = client.get_collection(
-            name=COLLECTION_NAME,
-            embedding_function=_embed_fn(),
-        )
-    else:
-        _collection = _build_index(client)
+    # In-memory client — rebuilds from train.csv on every cold start.
+    # Avoids SQLite persistence issues on HF Spaces / Docker containers.
+    client      = chromadb.EphemeralClient()
+    _collection = _build_index(client)
 
     return _collection
 
