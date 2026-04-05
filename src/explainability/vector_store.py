@@ -13,7 +13,7 @@ from chromadb.utils.embedding_functions import SentenceTransformerEmbeddingFunct
 
 REPO_ROOT       = os.path.abspath(os.path.join(os.path.dirname(__file__), '..', '..'))
 DB_PATH         = os.path.join(REPO_ROOT, 'data', 'chroma_db')
-TRAIN_PATH      = os.path.join(REPO_ROOT, 'data', 'processed', 'train.csv')
+TRAIN_PATH      = os.path.join(REPO_ROOT, 'data', 'processed', 'train_clean_v1.csv')
 COLLECTION_NAME = 'fraud_postings'
 EMBED_MODEL     = 'all-MiniLM-L6-v2'
 BATCH_SIZE      = 100   # ChromaDB safe batch size
