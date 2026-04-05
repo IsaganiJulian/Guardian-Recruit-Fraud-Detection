@@ -17,10 +17,10 @@ HF_MODELS = {
     "nlp_bert.pth":       os.path.join(REPO_ROOT, "models", "nlp_bert.pth"),
 }
 
-# train.csv is required by ChromaDB vector store at startup — host on HF Hub
-# Upload with: hf upload ijih14/guardian-recruit-models data/processed/train.csv train.csv
+# train_clean_v1.csv is required by ChromaDB vector store at startup — host on HF Hub
+# Upload with: hf upload ijih14/guardian-recruit-models data/processed/train_clean_v1.csv train_clean_v1.csv
 HF_DATA = {
-    "train.csv": os.path.join(REPO_ROOT, "data", "processed", "train.csv"),
+    "train_clean_v1.csv": os.path.join(REPO_ROOT, "data", "processed", "train_clean_v1.csv"),
 }
 
 DATA_DEST = os.path.join(REPO_ROOT, "data", "processed")
