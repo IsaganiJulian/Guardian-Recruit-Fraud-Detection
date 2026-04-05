@@ -40,7 +40,7 @@ def _build_index(client: chromadb.PersistentClient) -> chromadb.Collection:
     print('Building ChromaDB fraud index (one-time setup)...')
 
     df       = pd.read_csv(TRAIN_PATH)
-    fraud_df = df[df['fraudulent'] == 1].reset_index(drop=True)
+    fraud_df = df[df['fraudulent'].isin([1, 't', True, '1'])].reset_index(drop=True)
 
     texts, ids, metadatas = [], [], []
     for i, row in fraud_df.iterrows():
@@ -53,8 +53,8 @@ def _build_index(client: chromadb.PersistentClient) -> chromadb.Collection:
             'title':            str(row.get('title', '')           or '')[:200],
             'employment_type':  str(row.get('employment_type', '') or ''),
             'salary_range':     str(row.get('salary_range', '')    or ''),
-            'has_company_logo': int(row.get('has_company_logo', 0) or 0),
-            'has_questions':    int(row.get('has_questions', 0)    or 0),
+            'has_company_logo': 1 if str(row.get('has_company_logo', 0)) in ('1', 't', 'True') else 0,
+            'has_questions':    1 if str(row.get('has_questions', 0))    in ('1', 't', 'True') else 0,
         })
 
     collection = client.create_collection(
