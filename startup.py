@@ -103,9 +103,53 @@ def _download_data():
         print(f"[startup] FAIL  Google Drive download — {e}")
 
 
+def _download_bert_background():
+    """Download nlp_bert.pth in a background thread — app starts in lite mode until done."""
+    import threading
+    bert_path = HF_MODELS.get("nlp_bert.pth")
+    if bert_path and os.path.exists(bert_path) and os.path.getsize(bert_path) > 1_000_000:
+        return
+
+    def _bg():
+        print("[startup] BG    nlp_bert.pth downloading in background ...")
+        try:
+            from huggingface_hub import hf_hub_download
+            hf_hub_download(
+                repo_id=HF_REPO,
+                filename="nlp_bert.pth",
+                local_dir=os.path.join(REPO_ROOT, "models"),
+            )
+            print("[startup] BG    nlp_bert.pth ready.")
+        except Exception as e:
+            print(f"[startup] BG    nlp_bert.pth failed — {e}")
+
+    threading.Thread(target=_bg, daemon=True).start()
+
+
 def ensure_assets():
-    """Download all required assets if not already present. Call once at app startup."""
+    """Download required assets at startup. BERT downloads in background to avoid timeout."""
     print("[startup] Checking assets ...")
-    _download_models()
+
+    # Small models only — synchronous (fast)
+    small = {k: v for k, v in HF_MODELS.items() if k != "nlp_bert.pth"}
+    for filename, dest_path in small.items():
+        if os.path.exists(dest_path) and os.path.getsize(dest_path) > 1000:
+            print(f"[startup] SKIP  {filename}")
+            continue
+        print(f"[startup] DOWN  {filename} ...")
+        try:
+            from huggingface_hub import hf_hub_download
+            os.makedirs(os.path.dirname(dest_path), exist_ok=True)
+            hf_hub_download(repo_id=HF_REPO, filename=filename,
+                            local_dir=os.path.join(REPO_ROOT, "models"))
+            print(f"[startup] OK    {filename}")
+        except Exception as e:
+            print(f"[startup] FAIL  {filename} — {e}")
+
+    # train.csv — required for ChromaDB
     _download_data()
-    print("[startup] Assets ready.")
+
+    # BERT — background so app starts immediately in lite mode
+    _download_bert_background()
+
+    print("[startup] Assets ready. BERT loading in background — lite mode active.")
