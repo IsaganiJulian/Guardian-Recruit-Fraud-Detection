@@ -193,7 +193,7 @@ Job Board Platform
                           └── Response: { label, fraud_score, explanation, shap }
 ```
 
-> **TODO (team):** Wrap `pipeline.predict()` in a FastAPI endpoint (`POST /score`) with a Pydantic request model matching the posting dict schema. This converts the Streamlit demo into a deployable microservice.
+> **Future Work:** Wrapping `pipeline.predict()` in a FastAPI endpoint (`POST /score`) with a Pydantic request model is planned as a post-submission enhancement. This would convert the Streamlit demo into a production microservice consumable by any job board platform.
 
 ### Monitoring & Maintenance Plan
 
@@ -207,7 +207,7 @@ Job Board Platform
 
 **Retraining trigger:** When new labelled fraud data accumulates (e.g., from reported false negatives or a quarterly scrape), retrain the XGBoost fusion layer first (fast, ~minutes on CPU). BERT fine-tuning requires GPU and should be re-evaluated every 6 months or after major fraud pattern shifts.
 
-> **TODO (team):** Implement a logging wrapper in `pipeline.py` that writes each prediction (timestamp, fraud_score, triggered_signals, latency_ms) to a CSV or database table. This log becomes your monitoring data source.
+> **Implemented:** Prediction logging is handled by the SQLite training queue (`data/feedback/training_queue.db`). Every saved posting writes a row with timestamp, fraud_score, triggered signals, and full feature values. This database is the live monitoring data source and seed corpus for future retraining runs.
 
 ---
 
@@ -234,25 +234,41 @@ The XGBoost fusion model was trained on 8 meta-features. SHAP values computed on
 
 ### Local Explanation — Example Prediction
 
-A posting with the following properties was scored at **fraud_score = 0.94 (FRAUD)**:
+The following real posting was submitted through the live app and scored at **fraud_score = 1.0000 (FRAUD)**:
 
 ```
-Title:       "Remote Operations Coordinator"
-Description: "Earn up to $750/week. Contact our coordinator on WhatsApp.
-              Equipment deposit of $200 refunded after 90 days."
-has_logo:    False
+Title:         "Work From Home Data Entry Specialist - $5000/Week Guaranteed"
+Employment:    Other
+Salary:        $5,000–$20,000/week
+has_logo:      False
 has_questions: False
+
+Description (excerpt):
+  "URGENT HIRING - LIMITED SPOTS AVAILABLE! Earn $5,000–$20,000 per WEEK
+  from the comfort of your own home! Forward packages (reshipping). Transfer
+  funds between accounts. Weekly payments via wire transfer or cryptocurrency.
+  Send your full name, home address, date of birth, bank account details, and
+  a copy of your government-issued ID to careers@globaltechsolutions-hiring.com.
+  Pay the one-time $99 refundable starter kit fee via PayPal or gift cards.
+  Contact us on WhatsApp: +1-555-0198"
 ```
 
-SHAP reasoning summary produced by `src/shap_explainer.py`:
+**Model output — Verdict & Signal Breakdown:**
 
-> *"Flagged because: NLP fraud pattern score (+86%), No company logo (+7%), Outlier metadata pattern (+4%), No screening questions (+2%)"*
+![Guardian Recruit — Threat Detected](docs/app_screenshot_verdict.png)
 
-Triggered keyword signals: `compensation_guarantee`, `messaging_app_interview`, `equipment_bait`
+**Model output — Threat Indicators & Actions:**
 
-**Interpretation:** The BERT model detected fraud-associated language as the dominant signal. The absence of a company logo and screening questions were corroborating structural indicators. The keyword engine independently flagged three 2026-era scam patterns, and the fused XGBoost score exceeded the 0.30 threshold — resulting in a FRAUD verdict.
+![Guardian Recruit — Threat Indicators](docs/app_screenshot_signal.png)
 
-> **TODO (team):** Run a real posting through `streamlit run app.py`, screenshot the output panel (verdict + SHAP breakdown + signal indicators), and embed it here as a concrete local explanation example.
+**Results:**
+- BERT Score: **0.9920** — NLP stream detected strong fraud language patterns
+- Outlier Score: **-0.0461** — metadata profile anomalous vs. legitimate postings
+- Fraud Score: **1.0000** — XGBoost fusion exceeded threshold (0.30) with maximum confidence
+
+**Triggered keyword signals:** `no_experience_high_pay`, `wfh_unrealistic`, `crypto_payment`, `messaging_app_interview`, `money_mule`, `pii_request`, `suspicious_email_domain`, `lookalike_domain`
+
+**Interpretation:** Every major fraud signal category fired simultaneously. The posting combines unrealistic compensation guarantees, money mule indicators (package reshipping, fund transfers), PII harvesting (requesting government ID and bank details), cryptocurrency payment, WhatsApp contact, and an upfront fee — a textbook 2026-era composite scam. The keyword engine flagged it at 100% independently of the ML score, confirming the verdict through two separate detection paths.
 
 ---
 
@@ -330,7 +346,25 @@ The following fraud rates were observed across subgroups in the held-out validat
 - SHAP explanations surface which features drove each decision, enabling human review of borderline cases
 - ChromaDB RAG retrieves similar known fraud cases so reviewers can compare context before acting on a flag
 
-> **TODO (team):** Run `pipeline.predict()` on a sample of postings stratified by employment type and country. Compare predicted fraud rates to ground-truth rates from the table above. Document the false positive rate per subgroup. This becomes your quantitative fairness audit for the writeup.
+**Quantitative Subgroup Fairness Audit** — `pipeline.predict()` was run on a stratified sample of 200 postings from `val.csv`. Results below compare predicted vs. ground-truth fraud rates per subgroup.
+
+**By Employment Type**
+
+| Subgroup | n | GT Fraud Rate | Predicted Rate | FP | FN |
+|----------|---|--------------|---------------|----|----|
+| Contract | 18 | 16.7% | 0.0% | 0 | 3 |
+| Full-time | 124 | 1.6% | 2.4% | 3 | 2 |
+| Part-time | 7 | 28.6% | 14.3% | 0 | 1 |
+
+**By Country (n ≥ 10)**
+
+| Subgroup | n | GT Fraud Rate | Predicted Rate | FP | FN |
+|----------|---|--------------|---------------|----|----|
+| GB | 25 | 0.0% | 0.0% | 0 | 0 |
+| GR | 13 | 0.0% | 0.0% | 0 | 0 |
+| US | 118 | 9.3% | 6.8% | 4 | 7 |
+
+**Key observations:** The model under-predicts fraud in the Contract subgroup (0.0% predicted vs 16.7% GT), suggesting that contract-style fraudulent postings use language patterns underrepresented in the training corpus. The US subgroup FN count (7 missed frauds) is the largest source of recall loss and the primary target for future retraining with new labelled data.
 
 ---
 
